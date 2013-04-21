@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Music Wars</title>
+        <style type="text/css">
+            html, body, canvas {
+                margin:0px;
+                padding:0px;
+                overflow: hidden;
+            }
+        </style>
+        <script type="text/javascript" src="./ivank-0.72.js"></script>
+        <script type="text/javascript" src="./jquery-2.0.0.min.js"></script>
+        <script type="text/javascript">
+            var stage, width, height;
+            var sp, sideWalls;
+
+            function Init() {
+                stage = new Stage("canvas");
+
+                sp = new Sprite();
+                sideWalls = new Sprite();
+
+                stage.addChild(sp);
+                stage.addChild(sideWalls);
+                width = $(document).width();
+                height = $(document).height();
+                Draw();
+            }
+
+            var Draw = function() {
+                requestAnimFrame(Draw);
+
+                //	rectangles
+                for(var i=0; i<0; i++)
+                {
+                    var color = Math.floor(Math.random()*0xffffff);
+                    sp.graphics.beginFill(color, 0.6);
+                    sp.graphics.drawRect(Math.random()*800, Math.random()*500, 70, 70);
+                }
+
+                //	line
+                sideWalls.graphics.clear();
+                var intensity = 36;
+                sideWalls.graphics.lineStyle(intensity, 0xff0000, .50);
+                intensity /= 2;
+                sideWalls.graphics.moveTo(0, intensity);
+                sideWalls.graphics.lineTo(width, intensity);
+                sideWalls.graphics.moveTo(width - intensity, intensity * 2);
+                sideWalls.graphics.lineTo(width - intensity, height);
+                sideWalls.graphics.moveTo(width - intensity * 2, height - intensity);
+                sideWalls.graphics.lineTo(intensity * 2, height - intensity);
+                sideWalls.graphics.moveTo(intensity, height);
+                sideWalls.graphics.lineTo(intensity, intensity * 2);
+
+
+                sp.graphics.clear();
+                sp.graphics.lineStyle(2, 0x000000);
+                var startX = 0;
+                var startY = height/2;
+                var endX = width;
+                var endY = height/2;
+
+                var rangeX = endX - startX;
+                var rangeY = endY - startY;
+                var splits = 200;
+                var xSegmentSize = rangeX / splits;
+                var ySegmentSize = rangeY / splits;
+                rangeX += xSegmentSize;
+                rangeY += ySegmentSize;
+
+                sp.graphics.moveTo(startX + x, startY + y);
+                for (var x=0, y=0; x<rangeX || y<rangeY; x+=xSegmentSize, y+=ySegmentSize) {
+                    sp.graphics.lineTo(startX + x, startY + y + (Math.random() * height) - (height/2));
+                }
+            }
+
+
+            window.requestAnimFrame = (function(){
+              return  window.requestAnimationFrame       ||
+                      window.webkitRequestAnimationFrame ||
+                      window.mozRequestAnimationFrame    ||
+                      function( callback ){
+                        window.setTimeout(callback, 1000 / 60);
+                      };
+            })();
+
+        </script>
+    </head>
+    <body onload="Init()">
+        <canvas id="canvas"></canvas>
+    </body>
+</html>
