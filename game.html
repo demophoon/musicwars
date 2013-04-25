@@ -5,17 +5,60 @@
         <title>Music Wars</title>
         <style type="text/css">
             html, body, canvas {
-                margin:0px;
-                padding:0px;
+                margin: 0px;
+                padding: 0px;
                 overflow: hidden;
                 background: #090B1C;
+            }
+            #fileUploadForm {
+                position: absolute;
+                top: 0px;
+                left: 0px;
             }
         </style>
         <script type="text/javascript" src="./ivank-0.72.js"></script>
         <script type="text/javascript" src="./jquery-2.0.0.min.js"></script>
+
         <script type="text/javascript">
-            var stage, width, height;
+            $(document).ready(function() {
+                var filePrompt = document.getElementById('fileUploadForm');
+                filePrompt.addEventListener('change', getSongFromComputer, false);
+            });
+            var audioContext = new webkitAudioContext();
+
+            function getSongFromComputer(eventObj) {
+                var filename = eventObj.target.files[0];
+                var reader = new FileReader();
+                reader.onload = function() {
+                    audioContext.decodeAudioData(reader.result, function(buffer) {
+                        var audioBuffer = buffer;
+                        playBuffer(audioBuffer);
+                    });
+                };
+                reader.readAsArrayBuffer(filename);
+            }
+
+            function playBuffer(audioBuffer) {
+                source = audioContext.createBufferSource();
+                analyser = audioContext.createAnalyser();
+                
+                source.buffer = audioBuffer;
+                
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                
+                source.noteOn(0);
+            }
+
+        </script>
+
+        <script type="text/javascript">
+            var stage;
             var sp, sideWalls;
+
+
+            var width = 1280;
+            var height = 720;
 
             function Init() {
                 stage = new Stage("canvas");
@@ -25,17 +68,13 @@
 
                 stage.addChild(sp);
                 stage.addChild(sideWalls);
-                width = $(document).width();
-                height = $(document).height();
-                Draw();
-            }
+                stage.stageHeight = height;
+                stage.stageWidth = width;
 
-            var Background = function() {
-
+                stage.addEventListener(Event.ENTER_FRAME, Draw);
             }
 
             var Draw = function() {
-                requestAnimFrame(Draw);
 
                 //	rectangles
                 for(var i=0; i<0; i++)
@@ -102,6 +141,7 @@
         </script>
     </head>
     <body onload="Init()">
-        <canvas id="canvas"></canvas>
+        <canvas id="canvas"></canvas><br><br>
+        <input type="file" name="file" id="fileUploadForm"><br>
     </body>
 </html>
