@@ -117,13 +117,18 @@
                     intensity /= 1024;
                     intensity *= -1;
                     intensity += 40;
-                    if (lastUpdate + 50 < new Date() * 1) {
+                    if (lastUpdate + 5 < new Date() * 1) {
                         lastUpdate = new Date() * 1;
-                        totalIntensity += intensity - 8;
-                        graph.graphics.lineTo(step, height/2 + (totalIntensity/8 - lastIntensity));
+                        totalIntensity += intensity;
+                        graph.graphics.lineTo(step, height/2 + (totalIntensity - lastIntensity));
                         lastIntensity = totalIntensity;
                         totalIntensity = 0;
-                        step += 2;
+                        step += 1;
+                        if (step > width) {
+                            step=0;
+                            graph.graphics.clear();
+                            graph.graphics.moveTo(0,height/2);
+                        }
                     }
                     // if (intensity > 20) intensity = 20;
                     // if (intensity < 0) intensity = 0;
