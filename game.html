@@ -48,6 +48,9 @@
                 analyser = audioContext.createAnalyser();
                 
                 source.buffer = audioBuffer;
+                source.playbackRate.value = 2;
+
+                analyser.smoothingTimeConstant = 0;
                 
                 source.connect(analyser);
                 analyser.connect(audioContext.destination);
@@ -62,7 +65,7 @@
 
         <script type="text/javascript">
             var stage;
-            var sp, sideWalls;
+            var sp, sideWalls, graph;
 
 
             var width = 1280;
@@ -73,15 +76,24 @@
 
                 sp = new Sprite();
                 sideWalls = new Sprite();
+                graph = new Sprite();
+
+                graph.graphics.lineStyle(3, 0xff0000, 1);
+                graph.graphics.moveTo(step, height/2);
 
                 stage.addChild(sp);
                 stage.addChild(sideWalls);
+                stage.addChild(graph);
                 stage.stageHeight = height;
                 stage.stageWidth = width;
 
                 stage.addEventListener(Event.ENTER_FRAME, Draw);
             }
 
+            var totalIntensity = 0;
+            var lastIntensity = 0;
+            var lastUpdate = new Date() * 1;
+            var step = 0;
             var intensity = 0;
 
             var Draw = function() {
@@ -97,17 +109,26 @@
                     WavesArray = new Uint8Array(1024);
                     analyser.getFloatFrequencyData(FFTArray);
                     analyser.getByteTimeDomainData(WavesArray);
-                }
-                intensity = 0;
-                for (var x=0; x<1024; x+=1) {
-                    intensity += Math.abs(FFTArray[x]) - 50;
-                }
-                intensity /= 1024;
-                intensity *= -1;
-                intensity += 40;
-                if (intensity > 20) intensity = 20;
-                if (intensity < 0) intensity = 0;
 
+                    intensity = 0;
+                    for (var x=0; x<1024; x+=1) {
+                        intensity += Math.abs(FFTArray[x]) - 50;
+                    }
+                    intensity /= 1024;
+                    intensity *= -1;
+                    intensity += 40;
+                    if (lastUpdate + 50 < new Date() * 1) {
+                        lastUpdate = new Date() * 1;
+                        totalIntensity += intensity - 8;
+                        graph.graphics.lineTo(step, height/2 + (totalIntensity/8 - lastIntensity));
+                        lastIntensity = totalIntensity;
+                        totalIntensity = 0;
+                        step += 2;
+                    }
+                    // if (intensity > 20) intensity = 20;
+                    // if (intensity < 0) intensity = 0;
+
+                }
                 /*
                  *  Draw Side Walls
                  */
@@ -131,7 +152,7 @@
                 var drawWaveform = function(startX, startY, endX, endY, Waves, displayObj) {
                     var rangeX = endX - startX;
                     var rangeY = endY - startY;
-                    var splits = width/1;
+                    var splits = width/5;
                     var xSegmentSize = rangeX / splits;
                     var ySegmentSize = rangeY / splits;
                     rangeX += xSegmentSize;
