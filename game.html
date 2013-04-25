@@ -25,6 +25,7 @@
                 filePrompt.addEventListener('change', getSongFromComputer, false);
             });
             var audioContext = new webkitAudioContext();
+            var songPlaying = false;
 
             function getSongFromComputer(eventObj) {
                 var filename = eventObj.target.files[0];
@@ -48,7 +49,10 @@
                 analyser.connect(audioContext.destination);
                 
                 source.noteOn(0);
+                songPlaying = true;
             }
+
+
 
         </script>
 
@@ -74,9 +78,31 @@
                 stage.addEventListener(Event.ENTER_FRAME, Draw);
             }
 
+            var intensity = 0;
+
             var Draw = function() {
 
-                //	rectangles
+                /*
+                 *  Calculate Waveforms
+                 */
+                var WavesArray = [127];
+                var FFTArray = [0];
+
+                if (songPlaying) {
+                    FFTArray = new Float32Array(1024);
+                    WavesArray = new Uint8Array(1024);
+                    analyser.getFloatFrequencyData(FFTArray);
+                    analyser.getByteTimeDomainData(WavesArray);
+                }
+                intensity = 0;
+                for (var x=0; x<1024; x+=1) {
+                    intensity += Math.abs(FFTArray[x]) - 50;
+                }
+                intensity /= 1024;
+
+                /*
+                 *  Draw Side Walls
+                 */
                 for(var i=0; i<0; i++)
                 {
                     var color = Math.floor(Math.random()*0xffffff);
@@ -84,9 +110,10 @@
                     sp.graphics.drawRect(Math.random()*800, Math.random()*500, 70, 70);
                 }
 
-                //	line
+                /*
+                 *  Draw Waveform
+                 */
                 sideWalls.graphics.clear();
-                var intensity = Math.random() * 36;
                 sideWalls.graphics.lineStyle(intensity, 0xffffff, .50);
                 intensity /= 2;
                 sideWalls.graphics.moveTo(0, intensity);
@@ -116,15 +143,17 @@
 
                 var rangeX = endX - startX;
                 var rangeY = endY - startY;
-                var splits = 150;
+                var splits = width/3;
                 var xSegmentSize = rangeX / splits;
                 var ySegmentSize = rangeY / splits;
                 rangeX += xSegmentSize;
                 rangeY += ySegmentSize;
 
                 sp.graphics.moveTo(startX + x, startY + y);
+
                 for (var x=0, y=0; x<rangeX || y<rangeY; x+=xSegmentSize, y+=ySegmentSize) {
-                    sp.graphics.lineTo(startX + x, startY + y + (Math.random() * 250) - (250/2));
+                    var wave = WavesArray[~~((x/rangeX) * WavesArray.length)];
+                    sp.graphics.lineTo(startX + x, startY + y + (wave) - (250/2));
                 }
             }
 
