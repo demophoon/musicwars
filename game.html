@@ -20,6 +20,10 @@
         <script type="text/javascript" src="./jquery-2.0.0.min.js"></script>
 
         <script type="text/javascript">
+
+            version = "0.2a";
+            author = "Britt Gresham";
+
             $(document).ready(function() {
                 var filePrompt = document.getElementById('fileUploadForm');
                 filePrompt.addEventListener('change', getSongFromComputer, false);
@@ -99,19 +103,13 @@
                     intensity += Math.abs(FFTArray[x]) - 50;
                 }
                 intensity /= 1024;
+                intensity *= -1;
+                intensity += 40;
+                if (intensity > 20) intensity = 20;
+                if (intensity < 0) intensity = 0;
 
                 /*
                  *  Draw Side Walls
-                 */
-                for(var i=0; i<0; i++)
-                {
-                    var color = Math.floor(Math.random()*0xffffff);
-                    sp.graphics.beginFill(color, 0.6);
-                    sp.graphics.drawRect(Math.random()*800, Math.random()*500, 70, 70);
-                }
-
-                /*
-                 *  Draw Waveform
                  */
                 sideWalls.graphics.clear();
                 sideWalls.graphics.lineStyle(intensity, 0xffffff, .50);
@@ -126,35 +124,41 @@
                 sideWalls.graphics.lineTo(intensity, intensity * 2);
 
 
-                sp.graphics.clear();
-                sp.graphics.lineStyle(2, 0xffffff);
-                var startX = 0;
-                var startY = height/2;
-                var endX = width;
-                var endY = height/2;
+                /*
+                 *  Draw Waveform
+                 */
 
-                var movementx = (Math.sin(new Date() / 2500) * 400);
-                var movementy = (Math.cos(new Date() / 2500) * 400);
+                var drawWaveform = function(startX, startY, endX, endY, Waves, displayObj) {
+                    var rangeX = endX - startX;
+                    var rangeY = endY - startY;
+                    var splits = width/1;
+                    var xSegmentSize = rangeX / splits;
+                    var ySegmentSize = rangeY / splits;
+                    rangeX += xSegmentSize;
+                    rangeY += ySegmentSize;
 
-                var startX = 0;
-                var startY = height / 2;
-                var endX = width;
-                var endY = height / 2;
+                    sp.graphics.moveTo(startX + x, startY + y);
 
-                var rangeX = endX - startX;
-                var rangeY = endY - startY;
-                var splits = width/3;
-                var xSegmentSize = rangeX / splits;
-                var ySegmentSize = rangeY / splits;
-                rangeX += xSegmentSize;
-                rangeY += ySegmentSize;
-
-                sp.graphics.moveTo(startX + x, startY + y);
-
-                for (var x=0, y=0; x<rangeX || y<rangeY; x+=xSegmentSize, y+=ySegmentSize) {
-                    var wave = WavesArray[~~((x/rangeX) * WavesArray.length)];
-                    sp.graphics.lineTo(startX + x, startY + y + (wave) - (250/2));
+                    for (var x=0, y=0; x<rangeX || y<rangeY; x+=xSegmentSize, y+=ySegmentSize) {
+                        var wave = Waves[~~((x/rangeX) * Waves.length)];
+                        sp.graphics.lineTo(startX + x, startY + y + (wave) - (250/2));
+                    }
                 }
+
+                sp.graphics.clear();
+                sp.graphics.lineStyle(.5, 0xffffff);
+
+                drawWaveform(0, height/2, width, height/2, WavesArray, sp);
+
+                sp.graphics.lineStyle(2, 0xffffff, (intensity/20) + .01);
+                drawWaveform(0, height/4, width, height/4, WavesArray, sp);
+
+                sp.graphics.lineStyle(2, 0xffffff, (intensity/20) + .01);
+                drawWaveform(0, 3*height/4, width, 3*height/4, WavesArray, sp);
+
+                sp.graphics.lineStyle(7, 0xffffff, (intensity/20) + .01);
+                drawWaveform(0, (height/2)-4, width, (height/2)-4, WavesArray, sp);
+                drawWaveform(0, (height/2)+4, width, (height/2)+4, WavesArray, sp);
             }
 
 
