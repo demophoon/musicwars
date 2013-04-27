@@ -46,17 +46,22 @@
             function playBuffer(audioBuffer) {
                 source = audioContext.createBufferSource();
                 analyser = audioContext.createAnalyser();
+                delay = audioContext.createDelay();
                 
                 source.buffer = audioBuffer;
-                source.playbackRate.value = 2;
+                source.playbackRate.value = 1;
+
+                delay.delayTime.value = .06;
 
                 analyser.smoothingTimeConstant = 0;
                 
                 source.connect(analyser);
-                analyser.connect(audioContext.destination);
+                analyser.connect(delay);
+                delay.connect(audioContext.destination);
                 
                 source.noteOn(0);
                 songPlaying = true;
+                lastBeat = new Date() * 1;
             }
 
 
@@ -67,6 +72,10 @@
             var stage;
             var sp, sideWalls, graph;
 
+            var bpm = 0;
+            var bpmObj = {};
+            var lastBeat = 0;
+            var beatTolerance = 30;
 
             var width = 1280;
             var height = 720;
@@ -95,6 +104,7 @@
             var lastUpdate = new Date() * 1;
             var step = 0;
             var intensity = 0;
+            var sidewallIntensity = 0;
 
             var Draw = function() {
 
@@ -116,38 +126,52 @@
                     }
                     intensity /= 1024;
                     intensity *= -1;
-                    intensity += 40;
-                    if (lastUpdate + 5 < new Date() * 1) {
+                    if (lastUpdate + 5 < new Date() * 1 || true) {
                         lastUpdate = new Date() * 1;
-                        totalIntensity += intensity;
-                        graph.graphics.lineTo(step, height/2 + (totalIntensity - lastIntensity));
-                        lastIntensity = totalIntensity;
-                        totalIntensity = 0;
-                        step += 1;
+                        graph.graphics.lineTo(step, height/2 + (intensity - lastIntensity));
+                        sidewallIntensity = ((intensity - lastIntensity) * 3) - 12;
+                        lastIntensity = intensity;
+                        step += 5;
                         if (step > width) {
                             step=0;
                             graph.graphics.clear();
                             graph.graphics.moveTo(0,height/2);
                         }
                     }
-                    // if (intensity > 20) intensity = 20;
-                    // if (intensity < 0) intensity = 0;
+                    if (sidewallIntensity > - 0) {
+                        beat = beatTolerance * (~~((new Date() * 1 - lastBeat) / beatTolerance));
+                        lastBeat = new Date() * 1;
+                        if (!bpmObj.hasOwnProperty(beat))
+                            bpmObj[beat] = 0;
+                        if (beat > 0)
+                            bpmObj[beat] += 1;
+                        highScore = 0;
+                        for (b in bpmObj) {
+                            if (bpmObj[b] > highScore) {
+                                highScore = (bpmObj[b]);
+                                bpm = 60000 / (b * 1);
+                            }
+                        }
+                    }
+                    if (sidewallIntensity > 20) sidewallIntensity = 20;
+                    if (sidewallIntensity < 0) sidewallIntensity = 0;
+                    intensity += 40;
 
                 }
                 /*
                  *  Draw Side Walls
                  */
                 sideWalls.graphics.clear();
-                sideWalls.graphics.lineStyle(intensity, 0xffffff, .50);
-                intensity /= 2;
-                sideWalls.graphics.moveTo(0, intensity);
-                sideWalls.graphics.lineTo(width, intensity);
-                sideWalls.graphics.moveTo(width - intensity, intensity * 2);
-                sideWalls.graphics.lineTo(width - intensity, height);
-                sideWalls.graphics.moveTo(width - intensity * 2, height - intensity);
-                sideWalls.graphics.lineTo(intensity * 2, height - intensity);
-                sideWalls.graphics.moveTo(intensity, height);
-                sideWalls.graphics.lineTo(intensity, intensity * 2);
+                sideWalls.graphics.lineStyle(sidewallIntensity, 0xffffff, .50);
+                sidewallIntensity /= 2;
+                sideWalls.graphics.moveTo(0, sidewallIntensity);
+                sideWalls.graphics.lineTo(width, sidewallIntensity);
+                sideWalls.graphics.moveTo(width - sidewallIntensity, sidewallIntensity * 2);
+                sideWalls.graphics.lineTo(width - sidewallIntensity, height);
+                sideWalls.graphics.moveTo(width - sidewallIntensity * 2, height - sidewallIntensity);
+                sideWalls.graphics.lineTo(sidewallIntensity * 2, height - sidewallIntensity);
+                sideWalls.graphics.moveTo(sidewallIntensity, height);
+                sideWalls.graphics.lineTo(sidewallIntensity, sidewallIntensity * 2);
 
 
                 /*
