@@ -72,6 +72,9 @@
             var stage;
             var sp, sideWalls, graph;
 
+            var player;
+            var l, r, u, d;
+
             var bpm = 0;
             var bpmObj = {};
             var lastBeat = 0;
@@ -86,6 +89,7 @@
                 sp = new Sprite();
                 sideWalls = new Sprite();
                 graph = new Sprite();
+                player = new Sprite();
 
                 graph.graphics.lineStyle(3, 0xff0000, 1);
                 graph.graphics.moveTo(step, height/2);
@@ -93,10 +97,18 @@
                 stage.addChild(sp);
                 stage.addChild(sideWalls);
                 stage.addChild(graph);
+                stage.addChild(player);
                 stage.stageHeight = height;
                 stage.stageWidth = width;
 
+                stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeydown);
+                stage.addEventListener(KeyboardEvent.KEY_UP  , onKeyup);
                 stage.addEventListener(Event.ENTER_FRAME, Draw);
+
+                player.graphics.beginFill(0xffffff, 1);
+                player.graphics.drawRect(0,0,10,36);
+                player.graphics.drawRect(10,9,10,16);
+
             }
 
             var totalIntensity = 0;
@@ -111,6 +123,16 @@
                 /*
                  *  Calculate Waveforms
                  */
+                if (u) player.y -= 3;
+                if (d) player.y += 3;
+                if (l) player.x -= 3;
+                if (r) player.x += 3;
+
+                if (player.x > width) player.x = width;
+                if (player.x < 0) player.x = 0;
+                if (player.y > height) player.y = height;
+                if (player.y < 0) player.y = 0;
+
                 var WavesArray = [127];
                 var FFTArray = [0];
 
@@ -178,26 +200,6 @@
                  *  Draw Waveform
                  */
 
-                var drawWaveform = function(startX, startY, endX, endY, Waves, displayObj, ratio) {
-                    if (ratio == null) {
-                        ratio = 1;
-                    }
-                    var rangeX = endX - startX;
-                    var rangeY = endY - startY;
-                    var splits = width/5;
-                    var xSegmentSize = rangeX / splits;
-                    var ySegmentSize = rangeY / splits;
-                    rangeX += xSegmentSize;
-                    rangeY += ySegmentSize;
-
-                    sp.graphics.moveTo(startX + x, startY + y);
-
-                    for (var x=0, y=0; x<rangeX || y<rangeY; x+=xSegmentSize, y+=ySegmentSize) {
-                        var wave = Waves[~~((x/rangeX) * Waves.length)] * ratio;
-                        sp.graphics.lineTo(startX + x, startY + y + (wave) - (250/2));
-                    }
-                }
-
                 sp.graphics.clear();
                 sp.graphics.lineStyle(.5, 0xffffff);
 
@@ -220,6 +222,44 @@
                 sp.graphics.drawRect(step, 200 - 84, 8 + (intensity * 2), 8);
             }
 
+            /*
+               Key press events
+           */
+
+            function onKeydown(e)
+            { 
+               console.log(e.keyCode);
+               if(e.keyCode == 37) l = true;
+               if(e.keyCode == 38) u = true;
+               if(e.keyCode == 39) r = true;
+               if(e.keyCode == 40) d = true;
+            }
+
+            function onKeyup(e)
+            {
+               if(e.keyCode == 37) l = false;
+               if(e.keyCode == 38) u = false;
+               if(e.keyCode == 39) r = false;
+               if(e.keyCode == 40) d = false;
+            }
+
+            function drawWaveform(startX, startY, endX, endY, Waves, displayObj, ratio) {
+                if (ratio == null) {
+                    ratio = 1;
+                }
+                var rangeX = endX - startX;
+                var rangeY = endY - startY;
+                var splits = width/5;
+                var xSegmentSize = rangeX / splits;
+                var ySegmentSize = rangeY / splits;
+                rangeX += xSegmentSize;
+                rangeY += ySegmentSize;
+                sp.graphics.moveTo(startX + x, startY + y);
+                for (var x=0, y=0; x<rangeX || y<rangeY; x+=xSegmentSize, y+=ySegmentSize) {
+                    var wave = Waves[~~((x/rangeX) * Waves.length)] * ratio;
+                    sp.graphics.lineTo(startX + x, startY + y + (wave) - (250/2));
+                }
+            }
 
             window.requestAnimFrame = (function(){
               return  window.requestAnimationFrame       ||
