@@ -131,7 +131,7 @@
                         graph.graphics.lineTo(step, height/2 + (intensity - lastIntensity));
                         sidewallIntensity = ((intensity - lastIntensity) * 3) - 12;
                         lastIntensity = intensity;
-                        step += 5;
+                        step += 15;
                         if (step > width) {
                             step=0;
                             graph.graphics.clear();
@@ -178,7 +178,10 @@
                  *  Draw Waveform
                  */
 
-                var drawWaveform = function(startX, startY, endX, endY, Waves, displayObj) {
+                var drawWaveform = function(startX, startY, endX, endY, Waves, displayObj, ratio) {
+                    if (ratio == null) {
+                        ratio = 1;
+                    }
                     var rangeX = endX - startX;
                     var rangeY = endY - startY;
                     var splits = width/5;
@@ -190,7 +193,7 @@
                     sp.graphics.moveTo(startX + x, startY + y);
 
                     for (var x=0, y=0; x<rangeX || y<rangeY; x+=xSegmentSize, y+=ySegmentSize) {
-                        var wave = Waves[~~((x/rangeX) * Waves.length)];
+                        var wave = Waves[~~((x/rangeX) * Waves.length)] * ratio;
                         sp.graphics.lineTo(startX + x, startY + y + (wave) - (250/2));
                     }
                 }
@@ -198,10 +201,11 @@
                 sp.graphics.clear();
                 sp.graphics.lineStyle(.5, 0xffffff);
 
+
                 drawWaveform(0, height/2, width, height/2, WavesArray, sp);
 
                 sp.graphics.lineStyle(2, 0xffffff, (intensity/20) + .01);
-                drawWaveform(0, height/4, width, height/4, WavesArray, sp);
+                // drawWaveform(0, height/4, width, height/4, WavesArray, sp);
 
                 sp.graphics.lineStyle(2, 0xffffff, (intensity/20) + .01);
                 drawWaveform(0, 3*height/4, width, 3*height/4, WavesArray, sp);
@@ -209,6 +213,11 @@
                 sp.graphics.lineStyle(7, 0xffffff, (intensity/20) + .01);
                 drawWaveform(0, (height/2)-4, width, (height/2)-4, WavesArray, sp);
                 drawWaveform(0, (height/2)+4, width, (height/2)+4, WavesArray, sp);
+
+                sp.graphics.lineStyle(2, 0xffffff, (intensity/5) + .3);
+                drawWaveform(step, 200, step + (intensity * 2), 200, WavesArray, sp, .35);
+                sp.graphics.beginFill(0xffffff, 1);
+                sp.graphics.drawRect(step, 200 - 84, 8 + (intensity * 2), 8);
             }
 
 
