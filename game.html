@@ -132,7 +132,7 @@
             var bpm = 0;
             var bpmObj = {};
             var lastBeat = 0;
-            var beatTolerance = 30;
+            var beatTolerance = 10;
 
             var width = 1280;
             var height = 720;
@@ -186,7 +186,7 @@
                 graph.graphics.lineStyle(3, 0xff0000, 1);
                 graph.graphics.moveTo(step, height/2);
 
-                // stage.addChild(sp);
+                stage.addChild(sp);
                 stage.addChild(weapon);
                 stage.addChild(sideWalls);
                 stage.addChild(graph);
@@ -240,10 +240,10 @@
                     intensity *= -1;
                     if (lastUpdate + 5 < new Date() * 1 || true) {
                         lastUpdate = new Date() * 1;
-                        graph.graphics.lineTo(step, height/2 + (intensity - lastIntensity));
+                        graph.graphics.lineTo(step, height/2 + ((intensity - lastIntensity) * 8));
                         sidewallIntensity = ((intensity - lastIntensity) * 3) - 12;
                         lastIntensity = intensity;
-                        step += 15;
+                        step += 8;
                         if (step > width) {
                             step=0;
                             graph.graphics.clear();
@@ -255,7 +255,7 @@
                         lastBeat = new Date() * 1;
                         if (!bpmObj.hasOwnProperty(beat))
                             bpmObj[beat] = 0;
-                        if (beat > 0)
+                        if (beat > 100)
                             bpmObj[beat] += 1;
                         highScore = 0;
                         for (b in bpmObj) {
@@ -313,20 +313,20 @@
                  */
 
                 sp.graphics.clear();
-                sp.graphics.lineStyle(.5, 0xffffff);
-
-
+                sp.graphics.lineStyle(1.5, 0x898989);
                 drawWaveform(0, height/2, width, height/2, WavesArray, sp);
 
-                sp.graphics.lineStyle(2, 0xffffff, (intensity/20) + .01);
-                // drawWaveform(0, height/4, width, height/4, WavesArray, sp);
+                sp.graphics.lineStyle(2, 0x393939, (intensity/20) + .01);
+                drawWaveform(0, height/4, width, height/4, WavesArray, sp);
 
-                sp.graphics.lineStyle(2, 0xffffff, (intensity/20) + .01);
+                sp.graphics.lineStyle(2, 0x393939, (intensity/20) + .01);
                 drawWaveform(0, 3*height/4, width, 3*height/4, WavesArray, sp);
 
-                sp.graphics.lineStyle(7, 0xffffff, (intensity/20) + .01);
+                sp.graphics.lineStyle(7, 0x393939, (intensity/20) + .01);
                 drawWaveform(0, (height/2)-4, width, (height/2)-4, WavesArray, sp);
                 drawWaveform(0, (height/2)+4, width, (height/2)+4, WavesArray, sp);
+
+                sp.graphics.lineStyle(7, 0xffffff, (intensity/20) + .01);
 
                 /*
                  *  Draw Weapons
