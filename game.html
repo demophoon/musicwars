@@ -21,7 +21,7 @@
 
         <script type="text/javascript">
 
-            version = "0.2a";
+            version = "0.3a";
             author = "Britt Gresham";
 
             $(document).ready(function() {
@@ -73,9 +73,12 @@
             var sp, sideWalls, graph;
 
             var player;
-            var l, r, u, d;
+            var bullets = [];
+            var lastAddBullet = 0;
+            var l, r, u, d, fire;
 
             var bpm = 0;
+            var b;
             var bpmObj = {};
             var lastBeat = 0;
             var beatTolerance = 30;
@@ -87,6 +90,7 @@
                 stage = new Stage("canvas");
 
                 sp = new Sprite();
+                weapon = new Sprite();
                 sideWalls = new Sprite();
                 graph = new Sprite();
                 player = new Sprite();
@@ -94,10 +98,15 @@
                 graph.graphics.lineStyle(3, 0xff0000, 1);
                 graph.graphics.moveTo(step, height/2);
 
-                stage.addChild(sp);
+                // stage.addChild(sp);
+                stage.addChild(weapon);
                 stage.addChild(sideWalls);
                 stage.addChild(graph);
                 stage.addChild(player);
+
+                player.x = 100;
+                player.y = height / 2 - 16;
+
                 stage.stageHeight = height;
                 stage.stageWidth = width;
 
@@ -107,7 +116,9 @@
 
                 player.graphics.beginFill(0xffffff, 1);
                 player.graphics.drawRect(0,0,10,36);
-                player.graphics.drawRect(10,9,10,16);
+                player.graphics.drawRect(10,10,10,16);
+                player.graphics.drawRect(20,14,5,1);
+                player.graphics.drawRect(20,21,5,1);
 
             }
 
@@ -123,15 +134,16 @@
                 /*
                  *  Calculate Waveforms
                  */
-                if (u) player.y -= 3;
-                if (d) player.y += 3;
-                if (l) player.x -= 3;
-                if (r) player.x += 3;
+                if (u) player.y -= 8;
+                if (d) player.y += 8;
+                if (l) player.x -= 8;
+                if (r) player.x += 8;
 
-                if (player.x > width) player.x = width;
+                if (player.x > width - 20) player.x = width - 20;
                 if (player.x < 0) player.x = 0;
-                if (player.y > height) player.y = height;
+                if (player.y > height - 36) player.y = height - 36;
                 if (player.y < 0) player.y = 0;
+                if (fire) addBullet(player.x, player.y);
 
                 var WavesArray = [127];
                 var FFTArray = [0];
@@ -216,10 +228,25 @@
                 drawWaveform(0, (height/2)-4, width, (height/2)-4, WavesArray, sp);
                 drawWaveform(0, (height/2)+4, width, (height/2)+4, WavesArray, sp);
 
-                sp.graphics.lineStyle(2, 0xffffff, (intensity/5) + .3);
-                drawWaveform(step, 200, step + (intensity * 2), 200, WavesArray, sp, .35);
-                sp.graphics.beginFill(0xffffff, 1);
-                sp.graphics.drawRect(step, 200 - 84, 8 + (intensity * 2), 8);
+                /*
+                 *  Draw Weapons
+                 */
+                weapon.graphics.clear();
+                for (var x in bullets) {
+                    if (bullets[x]['x'] > width) {
+                        bullets.splice(x,1);
+                    } else {
+                        if (intensity / 2 < 12) {
+                            bullets[x]['x'] += 12;
+                        } else {
+                            bullets[x]['x'] += intensity / 2;
+                        }
+                        weapon.graphics.lineStyle(2, 0xffffff, (intensity/5) + .3);
+                        drawWaveform(bullets[x]['x'], bullets[x]['y'] + 84 + 16, bullets[x]['x'] + (intensity * 2), bullets[x]['y'] + 84 + 16, WavesArray, weapon, .35);
+                        weapon.graphics.beginFill(0xffffff, 1);
+                        weapon.graphics.drawRect(bullets[x]['x'], bullets[x]['y'] + 16, 8 + (intensity * 2), 8);
+                    }
+                }
             }
 
             /*
@@ -228,19 +255,21 @@
 
             function onKeydown(e)
             { 
-               console.log(e.keyCode);
-               if(e.keyCode == 37) l = true;
-               if(e.keyCode == 38) u = true;
-               if(e.keyCode == 39) r = true;
-               if(e.keyCode == 40) d = true;
+               // console.log(e.keyCode);
+               if(e.keyCode == 37 || e.keyCode == 65) l = true;
+               if(e.keyCode == 38 || e.keyCode == 87) u = true;
+               if(e.keyCode == 39 || e.keyCode == 68) r = true;
+               if(e.keyCode == 40 || e.keyCode == 83) d = true;
+               if(e.keyCode == 32) fire = true;
             }
 
             function onKeyup(e)
             {
-               if(e.keyCode == 37) l = false;
-               if(e.keyCode == 38) u = false;
-               if(e.keyCode == 39) r = false;
-               if(e.keyCode == 40) d = false;
+               if(e.keyCode == 37 || e.keyCode == 65) l = false;
+               if(e.keyCode == 38 || e.keyCode == 87) u = false;
+               if(e.keyCode == 39 || e.keyCode == 68) r = false;
+               if(e.keyCode == 40 || e.keyCode == 83) d = false;
+               if(e.keyCode == 32) fire = false;
             }
 
             function drawWaveform(startX, startY, endX, endY, Waves, displayObj, ratio) {
@@ -254,10 +283,17 @@
                 var ySegmentSize = rangeY / splits;
                 rangeX += xSegmentSize;
                 rangeY += ySegmentSize;
-                sp.graphics.moveTo(startX + x, startY + y);
+                displayObj.graphics.moveTo(startX + x, startY + y);
                 for (var x=0, y=0; x<rangeX || y<rangeY; x+=xSegmentSize, y+=ySegmentSize) {
                     var wave = Waves[~~((x/rangeX) * Waves.length)] * ratio;
-                    sp.graphics.lineTo(startX + x, startY + y + (wave) - (250/2));
+                    displayObj.graphics.lineTo(startX + x, startY + y + (wave) - (250/2));
+                }
+            }
+
+            function addBullet(x, y) {
+                if (Math.abs(lastAddBullet - new Date() * 1) > 60000 / bpm) {
+                    lastAddBullet = new Date() * 1;
+                    bullets.push({'x':x, 'y':y, 'time':new Date() * 1});
                 }
             }
 
