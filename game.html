@@ -21,8 +21,18 @@
 
         <script type="text/javascript">
 
-            version = "0.3a";
+            version = "0.4a";
             author = "Britt Gresham";
+
+            var photosensitiveWarningTitle = "PHOTOSENSITIVE WARNING: READ BEFORE PLAYING!";
+            var photosensitiveWarning = "A very small percentage of individuals may experience epileptic seizures" + 
+            " when exposed to certain light patterns or flashing lights.\nExposure to certain patterns or backgrounds" +
+            " on a computer screen, or while playing video games, may induce an epileptic seizure in these individuals.\n" +
+            "Certain conditions may induce previously undetected epileptic symptoms even in persons who have no history " +
+            "of prior seizures or epilepsy.\n\nIf you, or anyone in your family, have an epileptic condition, consult your physician" + 
+            " prior to playing. If you experience any of the following symptoms while playing a video or computer game -- " + 
+            "dizziness, altered vision, eye or muscle twitches, loss of awareness, disorientation, any involuntary movement, or " + 
+            "convulsions -- IMMEDIATELY discontinue use and consult your physician before resuming play."
 
             $(document).ready(function() {
                 var filePrompt = document.getElementById('fileUploadForm');
@@ -44,6 +54,7 @@
             }
 
             function playBuffer(audioBuffer) {
+                if (!warningAccepted) return;
                 source = audioContext.createBufferSource();
                 analyser = audioContext.createAnalyser();
                 delay = audioContext.createDelay();
@@ -61,6 +72,8 @@
                 
                 source.noteOn(0);
                 songPlaying = true;
+                bpm = 0;
+                bpmObj = {};
                 lastBeat = new Date() * 1;
             }
 
@@ -69,8 +82,47 @@
         </script>
 
         <script type="text/javascript">
+            function Button(name)	// extends Sprite
+            {
+                Sprite.apply(this);
+                this.buttonMode = true;
+                this.mouseChildren = false;
+                this.name = name;
+                
+                this.graphics.beginFill(0x00ddff);
+                this.graphics.drawRect(0, 0, 150, 35);
+                
+                
+                this.bg = new Sprite();		// bg is a layer with dark blue rectangle
+                this.bg.graphics.beginFill(0x0066dd);
+                this.bg.graphics.drawRect(0, 0, 150, 35);
+                this.addChild(this.bg);
+                
+                
+                var t = new TextField();
+                t.setTextFormat(Button.tFormat);
+                t.text = name; t.x = 20; t.y = 3;
+                t.width = t.textWidth; t.height = t.textHeight;
+                this.addChild(t);
+                
+                
+                this.addEventListener(MouseEvent.MOUSE_OVER, this.onMOv);
+                this.addEventListener(MouseEvent.MOUSE_OUT , this.onMOu);
+            }
+            Button.prototype = new Sprite();
+
+            //	static variable
+            Button.tFormat    = new TextFormat("Arial", 25, 0xffffff);
+
+            //	methods
+            Button.prototype.onMOv = function(e) { e.target.bg.visible = false; }
+            Button.prototype.onMOu = function(e) { e.target.bg.visible = true; }
+        </script>
+
+        <script type="text/javascript">
             var stage;
             var sp, sideWalls, graph;
+            var t1, t2, warningbg;
 
             var player;
             var bullets = [];
@@ -78,13 +130,13 @@
             var l, r, u, d, fire;
 
             var bpm = 0;
-            var b;
             var bpmObj = {};
             var lastBeat = 0;
             var beatTolerance = 30;
 
             var width = 1280;
             var height = 720;
+            var warningAccepted = false;
 
             function Init() {
                 stage = new Stage("canvas");
@@ -94,6 +146,42 @@
                 sideWalls = new Sprite();
                 graph = new Sprite();
                 player = new Sprite();
+
+                var f1 = new TextFormat("Arial", 20, 0xffffff);
+                warningbg = new Sprite();
+                warningbg.graphics.beginFill(0x000000, .5);
+                warningbg.graphics.drawRect(0,0,width,height);
+                stage.addChild(warningbg);
+                t1 = new TextField();
+                t1.setTextFormat(f1);
+                t1.wordWrap = true;
+                t1.text = photosensitiveWarningTitle;
+                t1.width = width - 40; 
+                t1.height = height - 40;
+                stage.addChild(t1);
+                t1.x = 20;
+                t1.y = 40;
+                t2 = new TextField();
+                t2.setTextFormat(f1);
+                t2.wordWrap = true;
+                t2.text = photosensitiveWarning;
+                t2.width = width - 40; 
+                t2.height = height - 40;
+                stage.addChild(t2);
+                t2.x = 20;
+                t2.y = 120;
+
+                acceptBtn = new Button("Accept");
+                acceptBtn.x = width / 2 - 100;
+                acceptBtn.y = height - 200;
+                stage.addChild(acceptBtn);
+                acceptBtn.addEventListener(MouseEvent.CLICK, hideWarning);
+
+
+                weapon.visible = false;
+                sideWalls.visible = false;
+                graph.visible = false;
+                player.visible = false;
 
                 graph.graphics.lineStyle(3, 0xff0000, 1);
                 graph.graphics.moveTo(step, height/2);
@@ -134,16 +222,6 @@
                 /*
                  *  Calculate Waveforms
                  */
-                if (u) player.y -= 8;
-                if (d) player.y += 8;
-                if (l) player.x -= 8;
-                if (r) player.x += 8;
-
-                if (player.x > width - 20) player.x = width - 20;
-                if (player.x < 0) player.x = 0;
-                if (player.y > height - 36) player.y = height - 36;
-                if (player.y < 0) player.y = 0;
-                if (fire) addBullet(player.x, player.y);
 
                 var WavesArray = [127];
                 var FFTArray = [0];
@@ -192,6 +270,28 @@
                     intensity += 40;
 
                 }
+
+                /*
+                 *  Player Movement
+                 */
+
+                var movementBonus = 1;
+                if (intensity / 4 > 0) {
+                    movementBonus += intensity / 4;
+                }
+                movementBonus = movementBonus / 12 * 12;
+                if (u) player.y -= 8 + movementBonus;
+                if (d) player.y += 8 + movementBonus;
+                if (l) player.x -= 8 + movementBonus;
+                if (r) player.x += 8 + movementBonus;
+
+                if (player.x > width - 20) player.x = width - 20;
+                if (player.x < 0) player.x = 0;
+                if (player.y > height - 36) player.y = height - 36;
+                if (player.y < 0) player.y = 0;
+                if (fire) addBullet(player.x, player.y);
+
+
                 /*
                  *  Draw Side Walls
                  */
@@ -236,15 +336,18 @@
                     if (bullets[x]['x'] > width) {
                         bullets.splice(x,1);
                     } else {
-                        if (intensity / 2 < 12) {
-                            bullets[x]['x'] += 12;
-                        } else {
+                        bullets[x]['x'] += 16;
+                        if (intensity / 2 > 0) {
                             bullets[x]['x'] += intensity / 2;
                         }
+                        var bsize = intensity;
+                        if (bsize < 5) {
+                            bsize = 5;
+                        }
                         weapon.graphics.lineStyle(2, 0xffffff, (intensity/5) + .3);
-                        drawWaveform(bullets[x]['x'], bullets[x]['y'] + 84 + 16, bullets[x]['x'] + (intensity * 2), bullets[x]['y'] + 84 + 16, WavesArray, weapon, .35);
+                        drawWaveform(bullets[x]['x'], bullets[x]['y'] + 84 + 16, bullets[x]['x'] + (bsize * 2), bullets[x]['y'] + 84 + 16, WavesArray, weapon, .35);
                         weapon.graphics.beginFill(0xffffff, 1);
-                        weapon.graphics.drawRect(bullets[x]['x'], bullets[x]['y'] + 16, 8 + (intensity * 2), 8);
+                        weapon.graphics.drawRect(bullets[x]['x'], bullets[x]['y'] + 16, 8 + (bsize * 2), 8);
                     }
                 }
             }
@@ -255,6 +358,7 @@
 
             function onKeydown(e)
             { 
+                if (!warningAccepted) return;
                // console.log(e.keyCode);
                if(e.keyCode == 37 || e.keyCode == 65) l = true;
                if(e.keyCode == 38 || e.keyCode == 87) u = true;
@@ -295,6 +399,19 @@
                     lastAddBullet = new Date() * 1;
                     bullets.push({'x':x, 'y':y, 'time':new Date() * 1});
                 }
+            }
+
+            function hideWarning() {
+                warningAccepted = true;
+                acceptBtn.visible = false;
+                t1.visible = false;
+                t2.visible = false;
+                warningbg.visible = false;
+
+                weapon.visible = true;
+                sideWalls.visible = true;
+                graph.visible = true;
+                player.visible = true;
             }
 
             window.requestAnimFrame = (function(){
