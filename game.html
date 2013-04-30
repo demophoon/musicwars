@@ -189,7 +189,7 @@
                 stage.addChild(sp);
                 stage.addChild(weapon);
                 stage.addChild(sideWalls);
-                stage.addChild(graph);
+                // stage.addChild(graph);
                 stage.addChild(player);
 
                 player.x = 100;
@@ -279,7 +279,7 @@
                 if (intensity / 4 > 0) {
                     movementBonus += intensity / 4;
                 }
-                movementBonus = movementBonus / 12 * 12;
+                movementBonus = movementBonus / 6 * 12;
                 if (u) player.y -= 8 + movementBonus;
                 if (d) player.y += 8 + movementBonus;
                 if (l) player.x -= 8 + movementBonus;
@@ -338,9 +338,9 @@
                     } else {
                         bullets[x]['x'] += 16;
                         if (intensity / 2 > 0) {
-                            bullets[x]['x'] += intensity / 2;
+                            bullets[x]['x'] += intensity;
                         }
-                        var bsize = intensity;
+                        var bsize = intensity * 2;
                         if (bsize < 5) {
                             bsize = 5;
                         }
