@@ -117,6 +117,99 @@
             //	methods
             Button.prototype.onMOv = function(e) { e.target.bg.visible = false; }
             Button.prototype.onMOu = function(e) { e.target.bg.visible = true; }
+
+            function Player() {
+                Sprite.apply(this);
+                this.health = 100;
+                this.lives = 3;
+                this.powerups = [];
+
+                this.hit = function(dmg) {
+                    this.health -= dmg;
+                    if (this.health <= 0) {
+                        this.lives -= 1;
+                        if (this.lives <= 0) {
+                            console.log("End Game");
+                        }
+                    }
+                };
+
+                this.reset = function() {
+                    this.health = 100;
+                    this.lives = 3;
+                    this.powerups = [];
+                }
+
+                this.addBullet = function() {
+                    stage.addChild(new Bullet(this.x, this.y, intensity))
+                }
+
+                this.graphics.beginFill(0xffffff, 1);
+                this.graphics.drawRect(0,0,10,36);
+                this.graphics.drawRect(10,10,10,16);
+                this.graphics.drawRect(20,14,5,1);
+                this.graphics.drawRect(20,21,5,1);
+            }
+            Player.prototype = new Sprite();
+
+            function Enemy() {
+                Sprite.apply(this);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
+                this.health = 100;
+
+                this.hit = function(dmg) {
+                    this.health -= dmg;
+                    if (this.health <= 0) {
+                        console.log("Enemy Defeated");
+                    }
+                }
+
+                this.graphics.beginFill(0xcc6600);
+                this.graphics.drawRect(0,0,25,25);
+            }
+            Enemy.prototype = new Sprite();
+            Enemy.prototype.draw = function(e) {
+                e.target.x -= 0;
+                
+            }
+
+            function Bullet(x, y) {
+                Sprite.apply(this);
+                this.x = x;
+                this.y = y;
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
+                this.damage = (intensity > 10) ? intensity : 10;
+                this.speed = (intensity > 0) ? 16 + intensity : 16;
+                this.bsize = (intensity * 2 > 0) ? intensity * 2 : 5;
+
+                this.hit = function() {
+                    this.remove();
+                }
+
+                this.remove = function() {
+                    this.removeEventListener(Event.ENTER_FRAME,this.draw,false);
+                    this.parent.removeChild(this);
+                }
+
+            }
+            Bullet.prototype = new Sprite();
+            Bullet.prototype.draw = function(e) {
+                e.target.graphics.clear();
+
+                e.target.graphics.lineStyle(2, 0xffffff, (intensity/5) + .3);
+                drawWaveform(0, 100, (e.target.bsize * 2), 100, WavesArray, e.target, .35);
+                e.target.graphics.beginFill(0xffffff, 1);
+                e.target.graphics.drawRect(0, 16, 8 + (e.target.bsize * 2), 8);
+
+                e.target.bsize = (intensity * 2 > 0) ? intensity * 2 : 5;
+                if (e.target.x > width) {
+                    e.target.remove();
+                } else {
+                    e.target.x += (intensity > 0) ? 16 + intensity : 16;
+                }
+            }
+
+
         </script>
 
         <script type="text/javascript">
@@ -125,11 +218,10 @@
             var t1, t2, warningbg;
 
             var player;
-            var bullets = [];
             var lastAddBullet = 0;
             var l, r, u, d, fire;
 
-            var bpm = 0;
+            var bpm = 60;
             var bpmObj = {};
             var lastBeat = 0;
             var beatTolerance = 10;
@@ -145,7 +237,7 @@
                 weapon = new Sprite();
                 sideWalls = new Sprite();
                 graph = new Sprite();
-                player = new Sprite();
+                player = new Player();
 
                 var f1 = new TextFormat("Arial", 20, 0xffffff);
                 warningbg = new Sprite();
@@ -202,12 +294,6 @@
                 stage.addEventListener(KeyboardEvent.KEY_UP  , onKeyup);
                 stage.addEventListener(Event.ENTER_FRAME, Draw);
 
-                player.graphics.beginFill(0xffffff, 1);
-                player.graphics.drawRect(0,0,10,36);
-                player.graphics.drawRect(10,10,10,16);
-                player.graphics.drawRect(20,14,5,1);
-                player.graphics.drawRect(20,21,5,1);
-
             }
 
             var totalIntensity = 0;
@@ -216,6 +302,7 @@
             var step = 0;
             var intensity = 0;
             var sidewallIntensity = 0;
+            var WavesArray = [127];
 
             var Draw = function() {
 
@@ -223,8 +310,8 @@
                  *  Calculate Waveforms
                  */
 
-                var WavesArray = [127];
-                var FFTArray = [0];
+                WavesArray = [127];
+                FFTArray = [0];
 
                 if (songPlaying) {
                     FFTArray = new Float32Array(1024);
@@ -331,25 +418,6 @@
                 /*
                  *  Draw Weapons
                  */
-                weapon.graphics.clear();
-                for (var x in bullets) {
-                    if (bullets[x]['x'] > width) {
-                        bullets.splice(x,1);
-                    } else {
-                        bullets[x]['x'] += 16;
-                        if (intensity / 2 > 0) {
-                            bullets[x]['x'] += intensity;
-                        }
-                        var bsize = intensity * 2;
-                        if (bsize < 5) {
-                            bsize = 5;
-                        }
-                        weapon.graphics.lineStyle(2, 0xffffff, (intensity/5) + .3);
-                        drawWaveform(bullets[x]['x'], bullets[x]['y'] + 84 + 16, bullets[x]['x'] + (bsize * 2), bullets[x]['y'] + 84 + 16, WavesArray, weapon, .35);
-                        weapon.graphics.beginFill(0xffffff, 1);
-                        weapon.graphics.drawRect(bullets[x]['x'], bullets[x]['y'] + 16, 8 + (bsize * 2), 8);
-                    }
-                }
             }
 
             /*
@@ -397,7 +465,7 @@
             function addBullet(x, y) {
                 if (Math.abs(lastAddBullet - new Date() * 1) > 60000 / bpm) {
                     lastAddBullet = new Date() * 1;
-                    bullets.push({'x':x, 'y':y, 'time':new Date() * 1});
+                    player.addBullet();
                 }
             }
 
