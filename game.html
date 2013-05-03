@@ -123,6 +123,8 @@
                 this.health = 100;
                 this.lives = 3;
                 this.powerups = [];
+                this.lastBulletFired = 0;
+                this.collides = true;
 
                 this.hit = function(dmg) {
                     this.health -= dmg;
@@ -141,7 +143,10 @@
                 }
 
                 this.addBullet = function() {
-                    stage.addChild(new Bullet(this.x, this.y, intensity))
+                    if (Math.abs(this.lastBulletFired - new Date() * 1) > 60000 / bpm) {
+                        this.lastBulletFired = new Date() * 1;
+                        stage.addChild(new Bullet(this.x, this.y, intensity))
+                    }
                 }
 
                 this.graphics.beginFill(0xffffff, 1);
@@ -155,13 +160,20 @@
             function Enemy() {
                 Sprite.apply(this);
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
-                this.health = 100;
+                this.health = 50;
+                this.collides = true;
 
                 this.hit = function(dmg) {
                     this.health -= dmg;
+                    console.log(dmg);
                     if (this.health <= 0) {
-                        console.log("Enemy Defeated");
+                        this.remove();
                     }
+                }
+
+                this.remove = function() {
+                    this.removeEventListener(Event.ENTER_FRAME,this.draw,false);
+                    this.parent.removeChild(this);
                 }
 
                 this.graphics.beginFill(0xcc6600);
@@ -169,7 +181,10 @@
             }
             Enemy.prototype = new Sprite();
             Enemy.prototype.draw = function(e) {
-                e.target.x -= 0;
+                if (e.target.x < 0) {
+                    e.target.remove();
+                }
+                e.target.x -= 10;
                 
             }
 
@@ -177,8 +192,9 @@
                 Sprite.apply(this);
                 this.x = x;
                 this.y = y;
+                this.collides = false;
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
-                this.damage = (intensity > 10) ? intensity : 10;
+                this.damage = (intensity > 0) ? 20 + intensity : 20;
                 this.speed = (intensity > 0) ? 16 + intensity : 16;
                 this.bsize = (intensity * 2 > 0) ? intensity * 2 : 5;
 
@@ -191,22 +207,39 @@
                     this.parent.removeChild(this);
                 }
 
+                this.enemyCheck = function() {
+                    for (var x in stage._children) {
+                        if (stage._children[x].collides == true) {
+                            if (this.hitTestObject(stage._children[x]) && stage._children[x] != player) {
+                                stage._children[x].hit(this.damage);
+                                this.remove();
+                            }
+                        }
+                    }
+                }
+
             }
             Bullet.prototype = new Sprite();
             Bullet.prototype.draw = function(e) {
                 e.target.graphics.clear();
 
+                e.target.bsize = (intensity * 2 > 0) ? intensity * 2 : 5;
+                e.target.damage = (intensity > 0) ? 20 + intensity : 20;
+                e.target.speed = (intensity > 0) ? 16 + intensity : 16;
+
+                e.target.graphics.beginFill(0x090B1C, 1);
+                e.target.graphics.drawRect(0,-20,20,80);
                 e.target.graphics.lineStyle(2, 0xffffff, (intensity/5) + .3);
                 drawWaveform(0, 100, (e.target.bsize * 2), 100, WavesArray, e.target, .35);
                 e.target.graphics.beginFill(0xffffff, 1);
                 e.target.graphics.drawRect(0, 16, 8 + (e.target.bsize * 2), 8);
 
-                e.target.bsize = (intensity * 2 > 0) ? intensity * 2 : 5;
                 if (e.target.x > width) {
                     e.target.remove();
                 } else {
                     e.target.x += (intensity > 0) ? 16 + intensity : 16;
                 }
+                e.target.enemyCheck();
             }
 
 
@@ -218,7 +251,7 @@
             var t1, t2, warningbg;
 
             var player;
-            var lastAddBullet = 0;
+            var lastEnemyAdded = 0;
             var l, r, u, d, fire;
 
             var bpm = 60;
@@ -352,6 +385,15 @@
                             }
                         }
                     }
+                    if (sidewallIntensity > 7) {
+                        if (Math.abs(lastEnemyAdded - new Date() * 1) > 60000 / bpm * 8) {
+                            lastEnemyAdded = new Date() * 1;
+                            en = new Enemy();
+                            en.x = width;
+                            en.y = Math.random() * height;
+                            stage.addChild(en);
+                        }
+                    }
                     if (sidewallIntensity > 20) sidewallIntensity = 20;
                     if (sidewallIntensity < 0) sidewallIntensity = 0;
                     intensity += 40;
@@ -376,7 +418,7 @@
                 if (player.x < 0) player.x = 0;
                 if (player.y > height - 36) player.y = height - 36;
                 if (player.y < 0) player.y = 0;
-                if (fire) addBullet(player.x, player.y);
+                if (fire) player.addBullet();
 
 
                 /*
@@ -462,12 +504,6 @@
                 }
             }
 
-            function addBullet(x, y) {
-                if (Math.abs(lastAddBullet - new Date() * 1) > 60000 / bpm) {
-                    lastAddBullet = new Date() * 1;
-                    player.addBullet();
-                }
-            }
 
             function hideWarning() {
                 warningAccepted = true;
