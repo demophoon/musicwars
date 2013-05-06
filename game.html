@@ -148,10 +148,8 @@
                 this.growthRate = 1.1;
                 this.opacity = 1;
 
-                this.remove = function() {
-                    this.removeEventListener(Event.ENTER_FRAME,this.draw,false);
-                    this.parent.removeChild(this);
-                }
+                this.remove = removeSprite;
+
                 this.graphics.beginFill(0xe49d5e, 1);
                 this.graphics.drawCircle(0,0,this.radius);
             }
@@ -165,10 +163,10 @@
                 green = (green > 255) ? 255 : green;
                 var color = ((1 << 24) + (red << 16) + (green << 8) + blue);
                 e.target.graphics.beginFill(color, e.target.opacity);
-                e.target.growthRate += .7;
+                e.target.growthRate += 0.9;
                 e.target.radius += e.target.growthRate;
                 if (e.target.radius >= 50) {
-                    e.target.opacity -= .05;
+                    e.target.opacity -= .1;
                     if (e.target.opacity <= 0) {
                         e.target.remove();
                     }
@@ -229,15 +227,12 @@
                         var e = new Explosion();
                         e.x = this.x + (this.GetWidth() / 2);
                         e.y = this.y + (this.GetHeight() / 2);
-                        stage.addChild(e);
+                        this.parent.addChild(e);
                         this.remove();
                     }
                 }
 
-                this.remove = function() {
-                    this.removeEventListener(Event.ENTER_FRAME,this.draw,false);
-                    this.parent.removeChild(this);
-                }
+                this.remove = removeSprite;
 
                 this.graphics.beginFill(0xcc6600);
                 this.graphics.drawRect(0,0,25,25);
@@ -258,17 +253,20 @@
                 this.collides = false;
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.damage = (intensity > 0) ? 20 + intensity : 20;
-                this.speed = (intensity > 0) ? 16 + intensity : 16;
+                this.speed = (intensity > 0) ? 28 + intensity : 28;
                 this.bsize = (intensity * 2 > 0) ? intensity * 2 : 5;
+
+                var e = new Waveform();
+                e.ratio = .3;
+                e.y = 108;
+                e.graphics.lineStyle(2, 0xffffff, (intensity/5) + .3);
+                this.addChild(e);
 
                 this.hit = function() {
                     this.remove();
                 }
 
-                this.remove = function() {
-                    this.removeEventListener(Event.ENTER_FRAME,this.draw,false);
-                    this.parent.removeChild(this);
-                }
+                this.remove = removeSprite;
 
                 this.enemyCheck = function() {
                     for (var x in stage._children) {
@@ -288,12 +286,10 @@
 
                 e.target.bsize = (intensity * 2 > 0) ? intensity * 2 : 5;
                 e.target.damage = (intensity > 0) ? 20 + intensity : 20;
-                e.target.speed = (intensity > 0) ? 16 + intensity : 16;
+                e.target.speed = (intensity > 0) ? 28 + intensity : 28;
 
-                e.target.graphics.beginFill(0x090B1C, 1);
+                e.target.graphics.beginFill(0x090B1C, 0);
                 e.target.graphics.drawRect(0,-20,20,80);
-                e.target.graphics.lineStyle(2, 0xffffff, (intensity/5) + .3);
-                drawWaveform(0, 100, (e.target.bsize * 2), 100, WavesArray, e.target, .35);
                 e.target.graphics.beginFill(0xffffff, 1);
                 e.target.graphics.drawRect(0, 16, 8 + (e.target.bsize * 2), 8);
 
@@ -305,6 +301,48 @@
                 e.target.enemyCheck();
             }
 
+
+            function Waveform(width, ratio) {
+                Sprite.apply(this);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
+                if (ratio == null) ratio = 1;
+                this.ratio = ratio;
+                if (width != null) this.width = width;
+                this.graphics.lineStyle(1.5, 0x898989);
+
+                this.remove = removeSprite;
+            }
+            Waveform.prototype = new Sprite();
+            Waveform.prototype.draw = function(e) {
+                if (e.target.width == null) {
+                    wavewidth = e.target.parent.GetWidth();
+                } else {
+                    wavewidth = e.target.width;
+                }
+                e.target.graphics.clear();
+                startX = startY = endY = 0;
+                endX = wavewidth;
+                var rangeX = endX - startX;
+                var rangeY = endY - startY;
+                var splits = width/5;
+                var xSegmentSize = rangeX / splits;
+                var ySegmentSize = rangeY / splits;
+                rangeX += xSegmentSize;
+                rangeY += ySegmentSize;
+                e.target.graphics.moveTo(startX + x, startY + y);
+                for (var x=0, y=0; x<rangeX || y<rangeY; x+=xSegmentSize, y+=ySegmentSize) {
+                    var wave = WavesArray[~~((x/rangeX) * WavesArray.length)] * e.target.ratio;
+                    e.target.graphics.lineTo(startX + x, startY + y + (wave) - (250/2));
+                }
+            }
+
+            var removeSprite = function() {
+                this.removeEventListener(Event.ENTER_FRAME,this.draw,false);
+                for (var x in this._children) {
+                    this._children[x].remove();
+                }
+                this.parent.removeChild(this);
+            }
 
         </script>
 
