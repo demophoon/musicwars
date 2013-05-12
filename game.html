@@ -122,7 +122,9 @@
                 
                 var t = new TextField();
                 t.setTextFormat(Button.tFormat);
-                t.text = name; t.x = 20; t.y = 3;
+                t.text = name;
+                t.x = 20;
+                t.y = 3;
                 t.width = t.textWidth; t.height = t.textHeight;
                 this.addChild(t);
                 
@@ -179,6 +181,7 @@
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.health = 100;
                 this.lives = 3;
+                this.score = 0;
                 this.powerups = [];
                 this.lastBulletFired = 0;
                 this.collides = true;
@@ -189,6 +192,7 @@
                         this.lives -= 1;
                         this.explode();
                         this.health = 100;
+                        this.powerups.push(new Invuln());
                         if (this.lives <= 0) {
                             this.explode();
                             source.noteOff(0);
@@ -225,6 +229,19 @@
                     }
                 }
 
+                this.updatePowerups = function() {
+                    for (var x in this.powerups) {
+                        if (this.powerups[x].active) {
+                            if (this.powerups[x].expires < new Date() * 1) {
+                                this.powerups[x].deactivate(this);
+                                this.powerups.splice(x,1);
+                            }
+                        } else {
+                            this.powerups[x].activate(this);
+                        }
+                    }
+                }
+
                 this.graphics.beginFill(0xffffff, 1);
                 this.graphics.drawRect(0,0,10,36);
                 this.graphics.drawRect(10,10,10,16);
@@ -234,7 +251,35 @@
             Player.prototype = new Sprite();
             Player.prototype.draw = function(e) {
                 e.target.enemyCheck();
+                e.target.updatePowerups();
             }
+            function Invuln() {
+                this.name = "invulnerability";
+                this.active = false;
+                this.shield = new Sprite();
+                this.shield.graphics.beginFill(0xffffff, .5);
+                this.activate = function(e) {
+                    this.active = true;
+                    e._hit = e.hit;
+                    e.hit = function(dmg) {
+                    }
+                    e.alpha = .35;
+                    this.shield.graphics.drawCircle(e.GetWidth() / 2, e.GetHeight() / 2, Math.max(e.GetWidth(), e.GetHeight()) + 2);
+                    e.addChild(this.shield);
+                }
+                this.deactivate = function(e) {
+                    this.active = false;
+                    e.hit = e._hit;
+                    e._hit = function(dmg) {
+                    }
+                    e.alpha = 1;
+                    e.removeChild(this.shield);
+                }
+                this.duration = 5000;
+                this.start = new Date() * 1;
+                this.expires = this.start + this.duration;
+            }
+
 
             function Enemy() {
                 Sprite.apply(this);
@@ -306,7 +351,7 @@
                 e.target.graphics.clear();
 
                 e.target.bsize = (intensity * 2 > 0) ? intensity * 2 : 5;
-                e.target.damage = (intensity > 0) ? 20 + intensity : 20;
+                e.target.damage = (intensity > 0) ? 20 + ( intensity * 2 ) : 20;
                 e.target.speed = (intensity > 0) ? 28 + intensity : 28;
 
                 e.target.graphics.beginFill(0x090B1C, 0);
@@ -393,6 +438,7 @@
             var width = 1280;
             var height = 720;
             var warningAccepted = false;
+            var t;
 
             function Init() {
                 // Preload Audio Buffers
@@ -401,6 +447,13 @@
                 // Create Global Stage
                 stage = new Stage("canvas");
 
+                t = new TextField();
+                t.setTextFormat(new TextFormat("Arial", 25, 0xffffff));
+                t.x = 20;
+                t.y = height - 30;
+                stage.addChild(t);
+                
+                
                 // Create Scenes
                 epilepsyWarningSplash = new Sprite();
                 mainMenuScene = new Sprite();
@@ -488,6 +541,11 @@
                 FFTArray = [0];
 
                 if (songPlaying) {
+                    t.text = "Health: " + player.health;
+                    t.text += "\nLives: " + player.lives;
+                    t.text += "\nScore: " + player.score;
+                    t.width = t.textWidth;
+                    t.height = t.textHeight;
                     FFTArray = new Float32Array(1024);
                     WavesArray = new Uint8Array(1024);
                     analyser.getFloatFrequencyData(FFTArray);
@@ -526,8 +584,14 @@
                             }
                         }
                     }
-                    if (sidewallIntensity > 7) {
-                        if (Math.abs(lastEnemyAdded - new Date() * 1) > 60000 / bpm * 8) {
+                    if (sidewallIntensity > 30) {
+                        en = new Enemy();
+                        en.x = width;
+                        en.y = Math.random() * height;
+                        stage.addChild(en);
+                    }
+                    if (sidewallIntensity > 5) {
+                        if (Math.abs(lastEnemyAdded - new Date() * 1) > 60000 / bpm * 4) {
                             lastEnemyAdded = new Date() * 1;
                             en = new Enemy();
                             en.x = width;
