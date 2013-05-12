@@ -176,6 +176,7 @@
 
             function Player() {
                 Sprite.apply(this);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.health = 100;
                 this.lives = 3;
                 this.powerups = [];
@@ -186,11 +187,17 @@
                     this.health -= dmg;
                     if (this.health <= 0) {
                         this.lives -= 1;
+                        this.explode();
+                        this.health = 100;
                         if (this.lives <= 0) {
-                            console.log("End Game");
+                            this.explode();
+                            source.noteOff(0);
+                            alert("End Game");
                         }
                     }
                 };
+
+                this.explode = explode;
 
                 this.reset = function() {
                     this.health = 100;
@@ -206,6 +213,18 @@
                     }
                 }
 
+                this.enemyCheck = function() {
+                    for (var x in stage._children) {
+                        if (stage._children[x].collides == true) {
+                            if (this.hitTestObject(stage._children[x]) && stage._children[x] != player) {
+                                this.hit(stage._children[x].damage);
+                                stage._children[x].explode();
+                                stage._children[x].remove();
+                            }
+                        }
+                    }
+                }
+
                 this.graphics.beginFill(0xffffff, 1);
                 this.graphics.drawRect(0,0,10,36);
                 this.graphics.drawRect(10,10,10,16);
@@ -213,26 +232,28 @@
                 this.graphics.drawRect(20,21,5,1);
             }
             Player.prototype = new Sprite();
+            Player.prototype.draw = function(e) {
+                e.target.enemyCheck();
+            }
 
             function Enemy() {
                 Sprite.apply(this);
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.health = 50;
+                this.damage = 40;
                 this.collides = true;
 
                 this.hit = function(dmg) {
                     this.health -= dmg;
                     console.log(dmg);
                     if (this.health <= 0) {
-                        var e = new Explosion();
-                        e.x = this.x + (this.GetWidth() / 2);
-                        e.y = this.y + (this.GetHeight() / 2);
-                        this.parent.addChild(e);
+                        this.explode();
                         this.remove();
                     }
                 }
 
                 this.remove = removeSprite;
+                this.explode = explode;
 
                 this.graphics.beginFill(0xcc6600);
                 this.graphics.drawRect(0,0,25,25);
@@ -344,6 +365,15 @@
                 this.parent.removeChild(this);
             }
 
+            var explode = function() {
+                var e = new Explosion();
+                e.radius = Math.max(this.GetWidth(), this.GetHeight()) / 2;
+                e.x = this.x + (this.GetWidth() / 2);
+                e.y = this.y + (this.GetHeight() / 2);
+                this.parent.addChild(e);
+            }
+
+
         </script>
 
         <script type="text/javascript">
@@ -368,7 +398,14 @@
                 // Preload Audio Buffers
                 preLoadBuffers();
 
+                // Create Global Stage
                 stage = new Stage("canvas");
+
+                // Create Scenes
+                epilepsyWarningSplash = new Sprite();
+                mainMenuScene = new Sprite();
+                gamePlayScene = new Sprite();
+                endGameScene = new Sprite();
 
                 sp = new Sprite();
                 weapon = new Sprite();
