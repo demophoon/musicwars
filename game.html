@@ -21,7 +21,7 @@
 
         <script type="text/javascript">
 
-            version = "0.12a";
+            version = "0.14a";
             author = "Britt Gresham";
 
             var photosensitiveWarningTitle = "PHOTOSENSITIVE WARNING: READ BEFORE PLAYING!";
@@ -55,26 +55,36 @@
 
             function playBuffer(audioBuffer) {
                 if (!warningAccepted) return;
+
                 source = audioContext.createBufferSource();
                 analyser = audioContext.createAnalyser();
+                highpass = audioContext.createBiquadFilter();
                 delay = audioContext.createDelay();
-                
+
                 source.buffer = audioBuffer;
-                source.playbackRate.value = 1;
-
-                delay.delayTime.value = .06;
-
-                analyser.smoothingTimeConstant = 0;
                 
                 source.connect(analyser);
-                analyser.connect(delay);
+                analyser.connect(highpass);
+                highpass.connect(delay);
                 delay.connect(audioContext.destination);
-                
+
+                resetSoundEffects()
+                player.reset();
+
                 source.noteOn(0);
                 songPlaying = true;
+            }
+
+            function resetSoundEffects() {
                 bpm = 0;
                 bpmObj = {};
                 lastBeat = new Date() * 1;
+                source.playbackRate.value = 1;
+                delay.delayTime.value = .06;
+                analyser.smoothingTimeConstant = 0;
+                highpass.type = highpass.ALLPASS;
+                highpass.Q.value = 0;
+                
             }
 
             var bulletShot;
@@ -179,6 +189,7 @@
             function Player() {
                 Sprite.apply(this);
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
+                this.alive = true;
                 this.health = 100;
                 this.lives = 3;
                 this.score = 0;
@@ -187,16 +198,21 @@
                 this.collides = true;
 
                 this.hit = function(dmg) {
-                    this.health -= dmg;
+                    if (this.alive)
+                        this.health -= dmg;
                     if (this.health <= 0) {
                         this.lives -= 1;
                         this.explode();
                         this.health = 100;
-                        this.powerups.push(new Invuln());
                         if (this.lives <= 0) {
                             this.explode();
-                            source.noteOff(0);
-                            alert("End Game");
+                            this.alive = false;
+                            highpass.type = highpass.BANDPASS;
+                            highpass.Q.value = 1.5;
+                        } else {
+                            var inv = new Invuln();
+                            inv.soundEffectEnabled = true;
+                            this.powerups.push(inv);
                         }
                     }
                 };
@@ -204,6 +220,7 @@
                 this.explode = explode;
 
                 this.reset = function() {
+                    this.alive = true;
                     this.health = 100;
                     this.lives = 3;
                     this.powerups = [];
@@ -235,6 +252,8 @@
                             if (this.powerups[x].expires < new Date() * 1) {
                                 this.powerups[x].deactivate(this);
                                 this.powerups.splice(x,1);
+                            } else {
+                                this.powerups[x].running(this);
                             }
                         } else {
                             this.powerups[x].activate(this);
@@ -256,10 +275,17 @@
             function Invuln() {
                 this.name = "invulnerability";
                 this.active = false;
+                this.soundEffectEnabled = false;
                 this.shield = new Sprite();
                 this.shield.graphics.beginFill(0xffffff, .5);
                 this.activate = function(e) {
+                    this.start = new Date() * 1;
+                    this.expires = this.start + this.duration;
                     this.active = true;
+                    if (this.soundEffectEnabled) {
+                        highpass.Q.value = 0;
+                        highpass.type = highpass.BANDPASS;
+                    }
                     e._hit = e.hit;
                     e.hit = function(dmg) {
                     }
@@ -267,8 +293,36 @@
                     this.shield.graphics.drawCircle(e.GetWidth() / 2, e.GetHeight() / 2, Math.max(e.GetWidth(), e.GetHeight()) + 2);
                     e.addChild(this.shield);
                 }
+                this.running = function(e) {
+                    if (this.soundEffectEnabled) {
+                        if (this.expires - new Date() * 1 < (this.duration / 3)) {
+                            if (highpass.Q.value < 0) {
+                                highpass.Q.value = 0;
+                            } else {
+                                highpass.Q.value -= .03;
+                            }
+                        } else {
+                            if (highpass.Q.value > 2) {
+                                highpass.Q.value = 2;
+                            } else {
+                                highpass.Q.value += .03;
+                            }
+                        }
+                    }
+                    if (this.expires - new Date() * 1 < (this.duration / 4)) {
+                        if (~~(this.expires - new Date() * 1 / 100) % 2) {
+                            this.shield.alpha = .25;
+                        } else {
+                            this.shield.alpha = 1;
+                        }
+                    }
+                }
                 this.deactivate = function(e) {
                     this.active = false;
+                    if (this.soundEffectEnabled) {
+                        highpass.Q.value = 0;
+                        highpass.type = highpass.ALLPASS;
+                    }
                     e.hit = e._hit;
                     e._hit = function(dmg) {
                     }
@@ -276,8 +330,6 @@
                     e.removeChild(this.shield);
                 }
                 this.duration = 5000;
-                this.start = new Date() * 1;
-                this.expires = this.start + this.duration;
             }
 
 
@@ -450,7 +502,6 @@
                 t = new TextField();
                 t.setTextFormat(new TextFormat("Arial", 25, 0xffffff));
                 t.x = 20;
-                t.y = height - 30;
                 stage.addChild(t);
                 
                 
@@ -545,7 +596,7 @@
                     t.text += "\nLives: " + player.lives;
                     t.text += "\nScore: " + player.score;
                     t.width = t.textWidth;
-                    t.height = t.textHeight;
+                    t.y = t.textHeight - 10;
                     FFTArray = new Float32Array(1024);
                     WavesArray = new Uint8Array(1024);
                     analyser.getFloatFrequencyData(FFTArray);
@@ -609,21 +660,23 @@
                  *  Player Movement
                  */
 
-                var movementBonus = 1;
-                if (intensity / 4 > 0) {
-                    movementBonus += intensity / 4;
-                }
-                movementBonus = movementBonus / 6 * 12;
-                if (u) player.y -= 8 + movementBonus;
-                if (d) player.y += 8 + movementBonus;
-                if (l) player.x -= 8 + movementBonus;
-                if (r) player.x += 8 + movementBonus;
+                if (player.alive) {
+                    var movementBonus = 1;
+                    if (intensity / 4 > 0) {
+                        movementBonus += intensity / 4;
+                    }
+                    movementBonus = movementBonus / 6 * 12;
+                    if (u) player.y -= 8 + movementBonus;
+                    if (d) player.y += 8 + movementBonus;
+                    if (l) player.x -= 8 + movementBonus;
+                    if (r) player.x += 8 + movementBonus;
 
-                if (player.x > width - 20) player.x = width - 20;
-                if (player.x < 0) player.x = 0;
-                if (player.y > height - 36) player.y = height - 36;
-                if (player.y < 0) player.y = 0;
-                if (fire) player.addBullet();
+                    if (player.x > width - 20) player.x = width - 20;
+                    if (player.x < 0) player.x = 0;
+                    if (player.y > height - 36) player.y = height - 36;
+                    if (player.y < 0) player.y = 0;
+                    if (fire) player.addBullet();
+                }
 
 
                 /*
