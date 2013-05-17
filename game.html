@@ -16,12 +16,13 @@
                 left: 0px;
             }
         </style>
-        <script type="text/javascript" src="./ivank-0.72.js"></script>
-        <script type="text/javascript" src="./jquery-2.0.0.min.js"></script>
+        <script type="text/javascript" src="./js/ivank-0.72.js"></script>
+        <script type="text/javascript" src="./js/t.js"></script>
+        <script type="text/javascript" src="./js/jquery-2.0.0.min.js"></script>
 
         <script type="text/javascript">
 
-            version = "0.14a";
+            version = "0.27a";
             author = "Britt Gresham";
 
             var photosensitiveWarningTitle = "PHOTOSENSITIVE WARNING: READ BEFORE PLAYING!";
@@ -40,6 +41,10 @@
             });
             var audioContext = new webkitAudioContext();
             var songPlaying = false;
+
+            mainMenuSource = audioContext.createBufferSource();
+            mainMenuSource.loop = true;
+            mainMenuSource.connect(audioContext.destination);
 
             function getSongFromComputer(eventObj) {
                 var filename = eventObj.target.files[0];
@@ -71,14 +76,14 @@
                 resetSoundEffects()
                 player.reset();
 
-                source.noteOn(0);
+                source.start(0);
                 songPlaying = true;
             }
 
             function resetSoundEffects() {
                 bpm = 0;
                 bpmObj = {};
-                lastBeat = new Date() * 1;
+                lastBeat = now();
                 source.playbackRate.value = 1;
                 delay.delayTime.value = .06;
                 analyser.smoothingTimeConstant = 0;
@@ -89,15 +94,27 @@
 
             var bulletShot;
             function preLoadBuffers() {
-                var request = new XMLHttpRequest();
-                request.open('GET', "./sounds/gunfire.wav", true);
-                request.responseType = 'arraybuffer';
-                request.onload = function() {
-                    audioContext.decodeAudioData(request.response, function(buffer) {
+                // Main Menu Music
+                var menuMusicRequest = new XMLHttpRequest();
+                menuMusicRequest.open("GET", "./sounds/menu.ogg", true);
+                menuMusicRequest.responseType = "arraybuffer";
+                menuMusicRequest.onload = function() {
+                    audioContext.decodeAudioData(menuMusicRequest.response, function(buffer) {
+                        mainMenuSource.buffer = buffer;
+                    });
+                }
+                menuMusicRequest.send();
+
+                // Gun fire sound effect
+                var bulletFireRequest = new XMLHttpRequest();
+                bulletFireRequest.open('GET', "./sounds/gunfire.wav", true);
+                bulletFireRequest.responseType = 'arraybuffer';
+                bulletFireRequest.onload = function() {
+                    audioContext.decodeAudioData(bulletFireRequest.response, function(buffer) {
                         bulletShot = buffer;
                     });
                 }
-                request.send();
+                bulletFireRequest.send();
             }
 
             function playBulletShot() {
@@ -106,7 +123,7 @@
                 source.buffer = bulletShot;
                 source.gain.value = .1 + (Math.random() * .05);
                 source.connect(audioContext.destination);
-                source.noteOn(0);
+                source.start(0);
             }
 
         </script>
@@ -154,7 +171,7 @@
             function Explosion() {
                 Sprite.apply(this);
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
-                this.startTime = new Date() * 1;
+                this.startTime = now();
                 this.expires = 3;
                 this.radius = 1;
                 this.growthRate = 1.1;
@@ -227,9 +244,9 @@
                 }
 
                 this.addBullet = function() {
-                    if (Math.abs(this.lastBulletFired - new Date() * 1) > 60000 / bpm) {
+                    if (Math.abs(this.lastBulletFired - now()) > 60000 / bpm) {
                         playBulletShot();
-                        this.lastBulletFired = new Date() * 1;
+                        this.lastBulletFired = now();
                         stage.addChild(new Bullet(this.x, this.y, intensity));
                     }
                 }
@@ -249,7 +266,7 @@
                 this.updatePowerups = function() {
                     for (var x in this.powerups) {
                         if (this.powerups[x].active) {
-                            if (this.powerups[x].expires < new Date() * 1) {
+                            if (this.powerups[x].expires < now()) {
                                 this.powerups[x].deactivate(this);
                                 this.powerups.splice(x,1);
                             } else {
@@ -279,7 +296,7 @@
                 this.shield = new Sprite();
                 this.shield.graphics.beginFill(0xffffff, .5);
                 this.activate = function(e) {
-                    this.start = new Date() * 1;
+                    this.start = now();
                     this.expires = this.start + this.duration;
                     this.active = true;
                     if (this.soundEffectEnabled) {
@@ -295,7 +312,7 @@
                 }
                 this.running = function(e) {
                     if (this.soundEffectEnabled) {
-                        if (this.expires - new Date() * 1 < (this.duration / 3)) {
+                        if (this.expires - now() < (this.duration / 3)) {
                             if (highpass.Q.value < 0) {
                                 highpass.Q.value = 0;
                             } else {
@@ -309,8 +326,8 @@
                             }
                         }
                     }
-                    if (this.expires - new Date() * 1 < (this.duration / 4)) {
-                        if (~~(this.expires - new Date() * 1 / 100) % 2) {
+                    if (this.expires - now() < (this.duration / 4)) {
+                        if (~~(this.expires - now() / 100) % 2) {
                             this.shield.alpha = .25;
                         } else {
                             this.shield.alpha = 1;
@@ -492,21 +509,152 @@
             var warningAccepted = false;
             var t;
 
+            function now() {
+                return new Date() * 1;
+            }
+
+            function WarningSplash() {
+                Sprite.apply(this);
+                this.mouseEnabled = true;
+                this.mouseChildren = true;
+
+                var f1 = new TextFormat("Arial", 20, 0xffffff);
+                var warningbg = new Sprite();
+                warningbg.graphics.beginFill(0x000000, .5);
+                warningbg.graphics.drawRect(0,0,width,height);
+                this.addChild(warningbg);
+                var t1 = new TextField();
+                t1.setTextFormat(f1);
+                t1.wordWrap = true;
+                t1.text = photosensitiveWarningTitle;
+                t1.width = width - 40; 
+                t1.height = height - 40;
+                this.addChild(t1);
+                t1.x = 20;
+                t1.y = 40;
+                var t2 = new TextField();
+                t2.setTextFormat(f1);
+                t2.wordWrap = true;
+                t2.text = photosensitiveWarning;
+                t2.width = width - 40; 
+                t2.height = height - 40;
+                this.addChild(t2);
+                t2.x = 20;
+                t2.y = 120;
+
+                var acceptBtn = new Button("Accept");
+                acceptBtn.x = width / 2 - 100;
+                acceptBtn.y = height - 200;
+                this.addChild(acceptBtn);
+                acceptBtn.addEventListener(MouseEvent.CLICK, hideWarning);
+
+            }
+            WarningSplash.prototype = new Sprite();
+            WarningSplash.prototype.draw = function(e) {
+            }
+
+            function hideWarning() {
+                stage.removeChild(epilepsyWarningSplash);
+                stage.addChild(gameSplash);
+                stage.addChild(starBg);
+                gameSplash.alpha = 0;
+                Tweener.addTween(gameSplash, {alpha:1, time:5});
+                setTimeout("mainMenuSource.start(0);", 500);
+            }
+
+            function StarBackground() {
+                Sprite.apply(this);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
+                this.numStars = 150;
+            }
+            StarBackground.prototype = new Sprite();
+            StarBackground.prototype.draw = function(e) {
+                if (e.target._children.length < e.target.numStars) {
+                    e.target.addChild(new Star(Math.random() * 5 + 3));
+                }
+                for (var x in e.target._children) {
+                    e.target._children[x].x -= e.target._children[x].speed;
+                    if (e.target._children[x].x < 0) {
+                        e.target._children[x].remove();
+                    }
+                }
+            }
+
+            function Star(speed) {
+                Sprite.apply(this);
+                this.speed = speed;
+                this.x = width;
+                this.y = Math.random() * height;
+                this.graphics.beginFill(0xffffff, .5);
+                this.graphics.drawRect(0,0,this.speed / 5,this.speed / 5);
+                this.remove = removeSprite;
+            }
+            Star.prototype = new Sprite();
+
+            function GameSplash() {
+                Sprite.apply(this);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
+
+                this.lastFrameFlag = 0;
+                this.nextBlink = now();
+                this.logoData = new BitmapData("./img/logo.png", 1);
+                this.logoDistortData = new BitmapData("./img/logo-distorted.png", 1);
+                this.logo = new Bitmap(this.logoData);
+                this.logo2 = new Bitmap(this.logoDistortData);
+                this.logo2.alpha = 0;
+                this.addChild(this.logo2);
+                this.addChild(this.logo);
+            }
+            GameSplash.prototype = new Sprite();
+            GameSplash.prototype.draw = function(e) {
+                if (e.target.nextBlink < now()) {
+                    e.target.logo.alpha = Math.random() * .25;
+                    e.target.logo2.alpha = Math.random() * .75;
+                    e.target.nextBlink = now() + Math.random() * 3000;
+                    e.target.lastFrameFlag = 0;
+                } else {
+                    if (e.target.lastFrameFlag < Math.random() * 5) {
+                        e.target.lastFrameFlag += 1;
+                    } else {
+                        e.target.logo.alpha = 1;
+                        e.target.logo2.alpha = 0;
+                    }
+                }
+                e.target.logo.x = (width / 2) - (e.target.logoData.width / 2);
+                e.target.logo.y = (height / 4) - (e.target.logoData.height / 4);
+                e.target.logo2.x = (width / 2) - (e.target.logoData.width / 2);
+                e.target.logo2.y = (height / 4) - (e.target.logoData.height / 4);
+            }
+
+            var logo;
+            var epilepsyWarningSplash, gameSplash, starBg;
             function Init() {
                 // Preload Audio Buffers
                 preLoadBuffers();
 
                 // Create Global Stage
                 stage = new Stage("canvas");
+                stage.stageHeight = height;
+                stage.stageWidth = width;
 
-                t = new TextField();
-                t.setTextFormat(new TextFormat("Arial", 25, 0xffffff));
-                t.x = 20;
-                stage.addChild(t);
-                
-                
                 // Create Scenes
-                epilepsyWarningSplash = new Sprite();
+                epilepsyWarningSplash = new WarningSplash();
+                gameSplash = new GameSplash();
+                starBg = new StarBackground();
+
+                // Add Initial Scene
+                stage.addChild(epilepsyWarningSplash);
+
+                // Create Event Listeners
+                // stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeydown);
+                // stage.addEventListener(KeyboardEvent.KEY_UP  , onKeyup);
+                // stage.addEventListener(Event.ENTER_FRAME, Draw);
+            }
+
+            function Init2() {
+
+
+                // Create Scenes
                 mainMenuScene = new Sprite();
                 gamePlayScene = new Sprite();
                 endGameScene = new Sprite();
@@ -517,37 +665,6 @@
                 graph = new Sprite();
                 player = new Player();
 
-                var f1 = new TextFormat("Arial", 20, 0xffffff);
-                warningbg = new Sprite();
-                warningbg.graphics.beginFill(0x000000, .5);
-                warningbg.graphics.drawRect(0,0,width,height);
-                stage.addChild(warningbg);
-                t1 = new TextField();
-                t1.setTextFormat(f1);
-                t1.wordWrap = true;
-                t1.text = photosensitiveWarningTitle;
-                t1.width = width - 40; 
-                t1.height = height - 40;
-                stage.addChild(t1);
-                t1.x = 20;
-                t1.y = 40;
-                t2 = new TextField();
-                t2.setTextFormat(f1);
-                t2.wordWrap = true;
-                t2.text = photosensitiveWarning;
-                t2.width = width - 40; 
-                t2.height = height - 40;
-                stage.addChild(t2);
-                t2.x = 20;
-                t2.y = 120;
-
-                acceptBtn = new Button("Accept");
-                acceptBtn.x = width / 2 - 100;
-                acceptBtn.y = height - 200;
-                stage.addChild(acceptBtn);
-                acceptBtn.addEventListener(MouseEvent.CLICK, hideWarning);
-
-
                 weapon.visible = false;
                 sideWalls.visible = false;
                 graph.visible = false;
@@ -556,27 +673,20 @@
                 graph.graphics.lineStyle(3, 0xff0000, 1);
                 graph.graphics.moveTo(step, height/2);
 
-                stage.addChild(sp);
-                stage.addChild(weapon);
-                stage.addChild(sideWalls);
+                // stage.addChild(sp);
+                // stage.addChild(weapon);
+                // stage.addChild(sideWalls);
                 // stage.addChild(graph);
-                stage.addChild(player);
+                // stage.addChild(player);
 
                 player.x = 100;
                 player.y = height / 2 - 16;
-
-                stage.stageHeight = height;
-                stage.stageWidth = width;
-
-                stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeydown);
-                stage.addEventListener(KeyboardEvent.KEY_UP  , onKeyup);
-                stage.addEventListener(Event.ENTER_FRAME, Draw);
 
             }
 
             var totalIntensity = 0;
             var lastIntensity = 0;
-            var lastUpdate = new Date() * 1;
+            var lastUpdate = now();
             var step = 0;
             var intensity = 0;
             var sidewallIntensity = 0;
@@ -608,8 +718,8 @@
                     }
                     intensity /= 1024;
                     intensity *= -1;
-                    if (lastUpdate + 5 < new Date() * 1 || true) {
-                        lastUpdate = new Date() * 1;
+                    if (lastUpdate + 5 < now() || true) {
+                        lastUpdate = now();
                         graph.graphics.lineTo(step, height/2 + ((intensity - lastIntensity) * 8));
                         sidewallIntensity = ((intensity - lastIntensity) * 3) - 12;
                         lastIntensity = intensity;
@@ -621,8 +731,8 @@
                         }
                     }
                     if (sidewallIntensity > - 0) {
-                        beat = beatTolerance * (~~((new Date() * 1 - lastBeat) / beatTolerance));
-                        lastBeat = new Date() * 1;
+                        beat = beatTolerance * (~~((now() - lastBeat) / beatTolerance));
+                        lastBeat = now();
                         if (!bpmObj.hasOwnProperty(beat))
                             bpmObj[beat] = 0;
                         if (beat > 100)
@@ -642,8 +752,8 @@
                         stage.addChild(en);
                     }
                     if (sidewallIntensity > 5) {
-                        if (Math.abs(lastEnemyAdded - new Date() * 1) > 60000 / bpm * 4) {
-                            lastEnemyAdded = new Date() * 1;
+                        if (Math.abs(lastEnemyAdded - now()) > 60000 / bpm * 4) {
+                            lastEnemyAdded = now();
                             en = new Enemy();
                             en.x = width;
                             en.y = Math.random() * height;
@@ -762,19 +872,6 @@
                 }
             }
 
-
-            function hideWarning() {
-                warningAccepted = true;
-                acceptBtn.visible = false;
-                t1.visible = false;
-                t2.visible = false;
-                warningbg.visible = false;
-
-                weapon.visible = true;
-                sideWalls.visible = true;
-                graph.visible = true;
-                player.visible = true;
-            }
 
             window.requestAnimFrame = (function(){
               return  window.requestAnimationFrame       ||
