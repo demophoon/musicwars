@@ -11,10 +11,6 @@
                 background: #090B1C;
             }
             #fileUploadForm {
-                display: none;
-                position: absolute;
-                top: 0px;
-                left: 0px;
             }
         </style>
         <script type="text/javascript" src="./js/ivank-0.72.js"></script>
@@ -23,7 +19,7 @@
 
         <script type="text/javascript">
 
-            version = "0.27a";
+            version = "0.55a";
             author = "Britt Gresham";
 
             var photosensitiveWarningTitle = "PHOTOSENSITIVE WARNING: READ BEFORE PLAYING!";
@@ -48,19 +44,21 @@
             mainMenuSource.connect(audioContext.destination);
 
             function getSongFromComputer(eventObj) {
+                showLoadingScreen();
                 var filename = eventObj.target.files[0];
                 var reader = new FileReader();
                 reader.onload = function() {
                     audioContext.decodeAudioData(reader.result, function(buffer) {
                         var audioBuffer = buffer;
                         playBuffer(audioBuffer);
+                        showGameScreen();
                     });
                 };
                 reader.readAsArrayBuffer(filename);
             }
 
             function playBuffer(audioBuffer) {
-                if (!warningAccepted) return;
+                Tweener.addTween(mainMenuSource.gain, {value:0, time:3});
 
                 source = audioContext.createBufferSource();
                 analyser = audioContext.createAnalyser();
@@ -75,7 +73,6 @@
                 delay.connect(audioContext.destination);
 
                 resetSoundEffects()
-                player.reset();
 
                 source.start(0);
                 songPlaying = true;
@@ -138,24 +135,29 @@
                 this.mouseChildren = false;
                 this.name = name;
                 
-                this.graphics.beginFill(0x00ddff);
-                this.graphics.drawRect(0, 0, 150, 35);
+                this.t = new TextField();
+                this.t.setTextFormat(Button.tFormat);
+                this.t.text = name;
+                this.t.x = 5;
+                this.t.y = 6;
+                this.t.width = (this.t.textWidth > 136) ? this.t.textWidth : 136;
+                this.t.height = this.t.textHeight;
+                this.addChild(this.t);
                 
+                this.btnBorder = new BitmapData("./img/btn.png", 1);
+                this.btnTop = new Bitmap(this.btnBorder);
+                this.btnBottom = new Bitmap(this.btnBorder);
+                this.btnBottom.y = this.t.GetHeight() + 10;
+                this.addChild(this.btnTop);
+                this.addChild(this.btnBottom);
+
+                this.graphics.beginFill(0x000000, 0.01);
+                this.graphics.drawRect(0, 0, this.t.GetWidth() + 10, this.t.GetHeight() + 10);
                 
                 this.bg = new Sprite();		// bg is a layer with dark blue rectangle
-                this.bg.graphics.beginFill(0x0066dd);
-                this.bg.graphics.drawRect(0, 0, 150, 35);
+                this.bg.graphics.beginFill(0x0066dd, 0.01);
+                this.bg.graphics.drawRect(0, 0, this.t.GetWidth() + 10, this.t.GetHeight() + 10);
                 this.addChild(this.bg);
-                
-                
-                var t = new TextField();
-                t.setTextFormat(Button.tFormat);
-                t.text = name;
-                t.x = 20;
-                t.y = 3;
-                t.width = t.textWidth; t.height = t.textHeight;
-                this.addChild(t);
-                
                 
                 this.addEventListener(MouseEvent.MOUSE_OVER, this.onMOv);
                 this.addEventListener(MouseEvent.MOUSE_OUT , this.onMOu);
@@ -163,7 +165,7 @@
             Button.prototype = new Sprite();
 
             //	static variable
-            Button.tFormat    = new TextFormat("Arial", 25, 0xffffff);
+            Button.tFormat    = new TextFormat("Arial", 25, 0xffffff, false, false, "center");
 
             //	methods
             Button.prototype.onMOv = function(e) { e.target.bg.visible = false; }
@@ -248,17 +250,17 @@
                     if (Math.abs(this.lastBulletFired - now()) > 60000 / bpm) {
                         playBulletShot();
                         this.lastBulletFired = now();
-                        stage.addChild(new Bullet(this.x, this.y, intensity));
+                        gamePlayScene.addChild(new Bullet(this.x, this.y, intensity));
                     }
                 }
 
                 this.enemyCheck = function() {
-                    for (var x in stage._children) {
-                        if (stage._children[x].collides == true) {
-                            if (this.hitTestObject(stage._children[x]) && stage._children[x] != player) {
-                                this.hit(stage._children[x].damage);
-                                stage._children[x].explode();
-                                stage._children[x].remove();
+                    for (var x in gamePlayScene._children) {
+                        if (gamePlayScene._children[x].collides == true) {
+                            if (this.hitTestObject(gamePlayScene._children[x]) && gamePlayScene._children[x] != gamePlayScene.player) {
+                                this.hit(gamePlayScene._children[x].damage);
+                                gamePlayScene._children[x].explode();
+                                gamePlayScene._children[x].remove();
                             }
                         }
                     }
@@ -287,6 +289,23 @@
             }
             Player.prototype = new Sprite();
             Player.prototype.draw = function(e) {
+                if (e.target.alive) {
+                    var movementBonus = 1;
+                    if (intensity / 4 > 0) {
+                        movementBonus += intensity / 4;
+                    }
+                    movementBonus = movementBonus / 6 * 12;
+                    if (u) e.target.y -= 8 + movementBonus;
+                    if (d) e.target.y += 8 + movementBonus;
+                    if (l) e.target.x -= 8 + movementBonus;
+                    if (r) e.target.x += 8 + movementBonus;
+
+                    if (e.target.x > width - 20) e.target.x = width - 20;
+                    if (e.target.x < 0) e.target.x = 0;
+                    if (e.target.y > height - 36) e.target.y = height - 36;
+                    if (e.target.y < 0) e.target.y = 0;
+                    if (fire) e.target.addBullet();
+                }
                 e.target.enemyCheck();
                 e.target.updatePowerups();
             }
@@ -360,7 +379,6 @@
 
                 this.hit = function(dmg) {
                     this.health -= dmg;
-                    console.log(dmg);
                     if (this.health <= 0) {
                         this.explode();
                         this.remove();
@@ -378,7 +396,8 @@
                 if (e.target.x < 0) {
                     e.target.remove();
                 }
-                e.target.x -= 10;
+                var boost = (intensity > 0) ? (intensity / 3) : 0;
+                e.target.x -= 10 + boost;
                 
             }
 
@@ -405,10 +424,10 @@
                 this.remove = removeSprite;
 
                 this.enemyCheck = function() {
-                    for (var x in stage._children) {
-                        if (stage._children[x].collides == true) {
-                            if (this.hitTestObject(stage._children[x]) && stage._children[x] != player) {
-                                stage._children[x].hit(this.damage);
+                    for (var x in gamePlayScene._children) {
+                        if (gamePlayScene._children[x].collides == true) {
+                            if (this.hitTestObject(gamePlayScene._children[x]) && gamePlayScene._children[x] != gamePlayScene.player) {
+                                gamePlayScene._children[x].hit(this.damage);
                                 this.remove();
                             }
                         }
@@ -555,44 +574,62 @@
             }
 
             function hideWarning() {
-                stage.removeChild(epilepsyWarningSplash);
                 stage.addChild(gameSplash);
                 stage.addChild(starBg);
+                gameSplash.x = 0;
+                gameSplash.y = 0;
+                starBg.alpha = 0;
                 gameSplash.alpha = 0;
-                Tweener.addTween(gameSplash, {alpha:1, time:5});
+                gameSplash.startButton.alpha = 0;
+                Tweener.addTween(epilepsyWarningSplash, {alpha:0, time:.5, onComplete: function() {
+                    stage.removeChild(epilepsyWarningSplash);
+                }})
+                Tweener.addTween(starBg, {alpha:1, time:5});
+                Tweener.addTween(gameSplash, {alpha:1, time:5, delay:1});
+                Tweener.addTween(gameSplash.startButton, {alpha:1, time:5, delay:3});
                 setTimeout("mainMenuSource.start(0);", 500);
             }
 
             function StarBackground() {
                 Sprite.apply(this);
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
-                this.numStars = 150;
+                this.numStars = 75;
+                while (this._children.length < this.numStars) {
+                    var s = new Star(Math.random() * 5 + .5);
+                    s.x = Math.random() * width;
+                    s.y = Math.random() * height;
+                    this.addChild(s);
+                }
             }
             StarBackground.prototype = new Sprite();
             StarBackground.prototype.draw = function(e) {
                 if (e.target._children.length < e.target.numStars) {
-                    e.target.addChild(new Star(Math.random() * 5 + 3));
-                }
-                for (var x in e.target._children) {
-                    e.target._children[x].x -= e.target._children[x].speed;
-                    if (e.target._children[x].x < 0) {
-                        e.target._children[x].remove();
-                    }
+                    e.target.addChild(new Star(Math.random() * 5 + .5));
                 }
             }
 
             function Star(speed) {
                 Sprite.apply(this);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.speed = speed;
+                this.initialSpeed = speed;
                 this.x = width;
                 this.y = Math.random() * height;
-                this.graphics.beginFill(0xffffff, .5);
-                this.graphics.drawRect(0,0,this.speed / 5,this.speed / 5);
                 this.remove = removeSprite;
             }
             Star.prototype = new Sprite();
+            Star.prototype.draw = function(e) {
+                e.target.x -= e.target.speed;
+                var boost = (intensity > 0) ? (intensity / 3) : 0;
+                e.target.x -= boost;
+                e.target.graphics.clear();
+                e.target.graphics.beginFill(0xffffff, .75);
+                e.target.graphics.drawRect(0,0,e.target.initialSpeed / 5 + (boost),e.target.initialSpeed / 5 + .2);
+                if (e.target.x < 0)
+                    e.target.remove();
+            }
 
-            function GameSplash() {
+            function Logo() {
                 Sprite.apply(this);
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
 
@@ -603,15 +640,16 @@
                 this.logo = new Bitmap(this.logoData);
                 this.logo2 = new Bitmap(this.logoDistortData);
                 this.logo2.alpha = 0;
+
                 this.addChild(this.logo2);
                 this.addChild(this.logo);
             }
-            GameSplash.prototype = new Sprite();
-            GameSplash.prototype.draw = function(e) {
+            Logo.prototype = new Sprite();
+            Logo.prototype.draw = function(e) {
                 if (e.target.nextBlink < now()) {
                     e.target.logo.alpha = Math.random() * .25;
                     e.target.logo2.alpha = Math.random() * .75;
-                    e.target.nextBlink = now() + Math.random() * 3000;
+                    e.target.nextBlink = now() + Math.random() * 6000;
                     e.target.lastFrameFlag = 0;
                 } else {
                     if (e.target.lastFrameFlag < Math.random() * 5) {
@@ -621,14 +659,121 @@
                         e.target.logo2.alpha = 0;
                     }
                 }
-                e.target.logo.x = (width / 2) - (e.target.logoData.width / 2);
-                e.target.logo.y = (height / 4) - (e.target.logoData.height / 4);
-                e.target.logo2.x = (width / 2) - (e.target.logoData.width / 2);
-                e.target.logo2.y = (height / 4) - (e.target.logoData.height / 4);
+            }
+
+            function GameSplash() {
+                Sprite.apply(this);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
+
+                this.logo = new Logo();
+                this.startButton = new Button("Start");
+                this.startButton.alpha = 0;
+
+                this.addChild(this.startButton);
+                this.addChild(this.logo);
+
+                this.startButton.addEventListener(MouseEvent.CLICK, showMenu);
+            }
+            GameSplash.prototype = new Sprite();
+            GameSplash.prototype.draw = function(e) {
+                e.target.logo.x = (width / 2) - (e.target.logo.GetWidth() / 2);
+                e.target.logo.y = (height / 4) - (e.target.logo.GetHeight() / 4);
+                e.target.startButton.x = (width / 2) - (e.target.startButton.GetWidth() / 2);
+                e.target.startButton.y = (3 * height / 4) - (e.target.startButton.GetHeight() / 4);
+            }
+
+            function showMenu() {
+                mainMenuScene.x = width;
+                stage.addChild(mainMenuScene);
+                Tweener.addTween(gameSplash, {x:-width, time:3, transition:"easeInOutSine"});
+                Tweener.addTween(mainMenuScene, {x:0, time:3, transition:"easeInOutSine"});
+            }
+
+            function MainMenu() {
+                Sprite.apply(this);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
+                this.uploadSongButton = new Button("Choose Song");
+                this.uploadSongButton.x = width/2 - this.uploadSongButton.GetWidth()/2;
+                this.uploadSongButton.y = height/2 - this.uploadSongButton.GetHeight()/2;
+                this.addChild(this.uploadSongButton);
+
+                this.uploadSongButton.addEventListener(MouseEvent.MOUSE_OVER, function() { canUpload = true; });
+                this.uploadSongButton.addEventListener(MouseEvent.MOUSE_OUT, function() { canUpload = false; });
+            }
+            MainMenu.prototype = new Sprite();
+            MainMenu.prototype.draw = function(e) {
+            }
+
+            function LoadingScreen() {
+                Sprite.apply(this);
+                this.logo = new Logo();
+                this.addChild(this.logo);
+
+            }
+            LoadingScreen.prototype = new Sprite();
+            
+            function showLoadingScreen() {
+                loadingScene.alpha = 0;
+                stage.addChild(loadingScene);
+                Tweener.addTween(loadingScene, {alpha:1, time:1});
+                Tweener.addTween(mainMenuScene, {alpha:0, time:1});
+            }
+
+            function showGameScreen() {
+                gamePlayScene.alpha = 0;
+                stage.addChild(gamePlayScene);
+                Tweener.addTween(loadingScene, {alpha:0, time:1});
+                Tweener.addTween(gamePlayScene, {alpha:1, time:1});
+            }
+
+            function GamePlay() {
+                Sprite.apply(this);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
+                this.sidewalls = new Sprite();
+                this.waveforms = new Sprite();
+
+                this.player = new Player();
+                this.player.x = 100;
+                this.player.y = height / 2 - 16;
+
+                this.addChild(this.sidewalls);
+                this.addChild(this.waveforms);
+                this.addChild(this.player);
+            }
+            GamePlay.prototype = new Sprite();
+            GamePlay.prototype.draw = function(e) {
+                updateSoundData();
+
+                // Sidewalls
+                e.target.sidewalls.graphics.clear();
+                e.target.sidewalls.graphics.lineStyle(sidewallIntensity, 0xffffff, .50);
+
+                sidewallIntensity /= 2;
+                e.target.sidewalls.graphics.moveTo(0, sidewallIntensity);
+                e.target.sidewalls.graphics.lineTo(width, sidewallIntensity);
+                e.target.sidewalls.graphics.moveTo(width - sidewallIntensity, sidewallIntensity * 2);
+                e.target.sidewalls.graphics.lineTo(width - sidewallIntensity, height);
+                e.target.sidewalls.graphics.moveTo(width - sidewallIntensity * 2, height - sidewallIntensity);
+                e.target.sidewalls.graphics.lineTo(sidewallIntensity * 2, height - sidewallIntensity);
+                e.target.sidewalls.graphics.moveTo(sidewallIntensity, height);
+                e.target.sidewalls.graphics.lineTo(sidewallIntensity, sidewallIntensity * 2);
+
+                e.target.waveforms.graphics.clear();
+                e.target.waveforms.graphics.lineStyle(1.5, 0x898989);
+                drawWaveform(0, height/2, width, height/2, WavesArray, e.target.waveforms);
+                e.target.waveforms.graphics.lineStyle(2, 0x393939, (intensity/20) + .01);
+                drawWaveform(0, height/4, width, height/4, WavesArray, e.target.waveforms);
+                e.target.waveforms.graphics.lineStyle(2, 0x393939, (intensity/20) + .01);
+                drawWaveform(0, 3*height/4, width, 3*height/4, WavesArray, e.target.waveforms);
+                e.target.waveforms.graphics.lineStyle(7, 0x393939, (intensity/20) + .01);
+                drawWaveform(0, (height/2)-4, width, (height/2)-4, WavesArray, e.target.waveforms);
+                drawWaveform(0, (height/2)+4, width, (height/2)+4, WavesArray, e.target.waveforms);
+                e.target.waveforms.graphics.lineStyle(7, 0xffffff, (intensity/20) + .01);
             }
 
             var logo;
-            var epilepsyWarningSplash, gameSplash, starBg;
+            var epilepsyWarningSplash, gameSplash, starBg, mainMenuScene, loadingScene;
+            var canUpload = false;
             function Init() {
                 // Preload Audio Buffers
                 preLoadBuffers();
@@ -642,47 +787,22 @@
                 epilepsyWarningSplash = new WarningSplash();
                 gameSplash = new GameSplash();
                 starBg = new StarBackground();
+                mainMenuScene = new MainMenu();
+                gamePlayScene = new GamePlay();
+                loadingScene = new LoadingScreen();
 
                 // Add Initial Scene
                 stage.addChild(epilepsyWarningSplash);
 
                 // Create Event Listeners
-                // stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeydown);
-                // stage.addEventListener(KeyboardEvent.KEY_UP  , onKeyup);
+                $("#canvas").click(function() {
+                    if (canUpload) {
+                        document.getElementById("fileUploadForm").click();
+                    }
+                })
+                stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeydown);
+                stage.addEventListener(KeyboardEvent.KEY_UP  , onKeyup);
                 // stage.addEventListener(Event.ENTER_FRAME, Draw);
-            }
-
-            function Init2() {
-
-
-                // Create Scenes
-                mainMenuScene = new Sprite();
-                gamePlayScene = new Sprite();
-                endGameScene = new Sprite();
-
-                sp = new Sprite();
-                weapon = new Sprite();
-                sideWalls = new Sprite();
-                graph = new Sprite();
-                player = new Player();
-
-                weapon.visible = false;
-                sideWalls.visible = false;
-                graph.visible = false;
-                player.visible = false;
-
-                graph.graphics.lineStyle(3, 0xff0000, 1);
-                graph.graphics.moveTo(step, height/2);
-
-                // stage.addChild(sp);
-                // stage.addChild(weapon);
-                // stage.addChild(sideWalls);
-                // stage.addChild(graph);
-                // stage.addChild(player);
-
-                player.x = 100;
-                player.y = height / 2 - 16;
-
             }
 
             var totalIntensity = 0;
@@ -692,22 +812,10 @@
             var intensity = 0;
             var sidewallIntensity = 0;
             var WavesArray = [127];
+            var FFTArray = [0];
 
-            var Draw = function() {
-
-                /*
-                 *  Calculate Waveforms
-                 */
-
-                WavesArray = [127];
-                FFTArray = [0];
-
+            function updateSoundData() {
                 if (songPlaying) {
-                    t.text = "Health: " + player.health;
-                    t.text += "\nLives: " + player.lives;
-                    t.text += "\nScore: " + player.score;
-                    t.width = t.textWidth;
-                    t.y = t.textHeight - 10;
                     FFTArray = new Float32Array(1024);
                     WavesArray = new Uint8Array(1024);
                     analyser.getFloatFrequencyData(FFTArray);
@@ -721,14 +829,12 @@
                     intensity *= -1;
                     if (lastUpdate + 5 < now() || true) {
                         lastUpdate = now();
-                        graph.graphics.lineTo(step, height/2 + ((intensity - lastIntensity) * 8));
+                        //graph.graphics.lineTo(step, height/2 + ((intensity - lastIntensity) * 8));
                         sidewallIntensity = ((intensity - lastIntensity) * 3) - 12;
                         lastIntensity = intensity;
                         step += 8;
                         if (step > width) {
                             step=0;
-                            graph.graphics.clear();
-                            graph.graphics.moveTo(0,height/2);
                         }
                     }
                     if (sidewallIntensity > - 0) {
@@ -750,7 +856,7 @@
                         en = new Enemy();
                         en.x = width;
                         en.y = Math.random() * height;
-                        stage.addChild(en);
+                        gamePlayScene.addChild(en);
                     }
                     if (sidewallIntensity > 5) {
                         if (Math.abs(lastEnemyAdded - now()) > 60000 / bpm * 4) {
@@ -758,78 +864,45 @@
                             en = new Enemy();
                             en.x = width;
                             en.y = Math.random() * height;
-                            stage.addChild(en);
+                            gamePlayScene.addChild(en);
                         }
                     }
                     if (sidewallIntensity > 20) sidewallIntensity = 20;
                     if (sidewallIntensity < 0) sidewallIntensity = 0;
                     intensity += 40;
-
                 }
 
-                /*
-                 *  Player Movement
-                 */
-
-                if (player.alive) {
-                    var movementBonus = 1;
-                    if (intensity / 4 > 0) {
-                        movementBonus += intensity / 4;
-                    }
-                    movementBonus = movementBonus / 6 * 12;
-                    if (u) player.y -= 8 + movementBonus;
-                    if (d) player.y += 8 + movementBonus;
-                    if (l) player.x -= 8 + movementBonus;
-                    if (r) player.x += 8 + movementBonus;
-
-                    if (player.x > width - 20) player.x = width - 20;
-                    if (player.x < 0) player.x = 0;
-                    if (player.y > height - 36) player.y = height - 36;
-                    if (player.y < 0) player.y = 0;
-                    if (fire) player.addBullet();
-                }
-
-
-                /*
-                 *  Draw Side Walls
-                 */
-                sideWalls.graphics.clear();
-                sideWalls.graphics.lineStyle(sidewallIntensity, 0xffffff, .50);
-                sidewallIntensity /= 2;
-                sideWalls.graphics.moveTo(0, sidewallIntensity);
-                sideWalls.graphics.lineTo(width, sidewallIntensity);
-                sideWalls.graphics.moveTo(width - sidewallIntensity, sidewallIntensity * 2);
-                sideWalls.graphics.lineTo(width - sidewallIntensity, height);
-                sideWalls.graphics.moveTo(width - sidewallIntensity * 2, height - sidewallIntensity);
-                sideWalls.graphics.lineTo(sidewallIntensity * 2, height - sidewallIntensity);
-                sideWalls.graphics.moveTo(sidewallIntensity, height);
-                sideWalls.graphics.lineTo(sidewallIntensity, sidewallIntensity * 2);
-
-
-                /*
-                 *  Draw Waveform
-                 */
-
-                sp.graphics.clear();
-                sp.graphics.lineStyle(1.5, 0x898989);
-                drawWaveform(0, height/2, width, height/2, WavesArray, sp);
-
-                sp.graphics.lineStyle(2, 0x393939, (intensity/20) + .01);
-                drawWaveform(0, height/4, width, height/4, WavesArray, sp);
-
-                sp.graphics.lineStyle(2, 0x393939, (intensity/20) + .01);
-                drawWaveform(0, 3*height/4, width, 3*height/4, WavesArray, sp);
-
-                sp.graphics.lineStyle(7, 0x393939, (intensity/20) + .01);
-                drawWaveform(0, (height/2)-4, width, (height/2)-4, WavesArray, sp);
-                drawWaveform(0, (height/2)+4, width, (height/2)+4, WavesArray, sp);
-
-                sp.graphics.lineStyle(7, 0xffffff, (intensity/20) + .01);
-
-                /*
-                 *  Draw Weapons
-                 */
             }
+
+            function Init2() {
+
+
+                // Create Scenes
+                gamePlayScene = new Sprite();
+                endGameScene = new Sprite();
+
+                sp = new Sprite();
+                weapon = new Sprite();
+                graph = new Sprite();
+                player = new Player();
+
+                weapon.visible = false;
+                sideWalls.visible = false;
+                graph.visible = false;
+                player.visible = false;
+
+                graph.graphics.lineStyle(3, 0xff0000, 1);
+                graph.graphics.moveTo(step, height/2);
+
+                // stage.addChild(sp);
+                // stage.addChild(weapon);
+                // stage.addChild(sideWalls);
+                // stage.addChild(graph);
+                // stage.addChild(player);
+
+
+            }
+
 
             /*
                Key press events
@@ -837,7 +910,6 @@
 
             function onKeydown(e)
             { 
-                if (!warningAccepted) return;
                // console.log(e.keyCode);
                if(e.keyCode == 37 || e.keyCode == 65) l = true;
                if(e.keyCode == 38 || e.keyCode == 87) u = true;
