@@ -10,16 +10,15 @@
                 overflow: hidden;
                 background: #090B1C;
             }
-            #fileUploadForm {
-            }
         </style>
         <script type="text/javascript" src="./js/ivank-0.72.js"></script>
         <script type="text/javascript" src="./js/t.js"></script>
         <script type="text/javascript" src="./js/jquery-2.0.0.min.js"></script>
+        <script type="text/javascript" src="./js/fullscreen.js"></script>
 
         <script type="text/javascript">
 
-            version = "0.55a";
+            version = "0.78a";
             author = "Britt Gresham";
 
             var photosensitiveWarningTitle = "PHOTOSENSITIVE WARNING: READ BEFORE PLAYING!";
@@ -39,9 +38,6 @@
             var audioContext = new webkitAudioContext();
             var songPlaying = false;
 
-            mainMenuSource = audioContext.createBufferSource();
-            mainMenuSource.loop = true;
-            mainMenuSource.connect(audioContext.destination);
 
             function getSongFromComputer(eventObj) {
                 showLoadingScreen();
@@ -57,6 +53,7 @@
                 reader.readAsArrayBuffer(filename);
             }
 
+            var mainMenuSource;
             function playBuffer(audioBuffer) {
                 Tweener.addTween(mainMenuSource.gain, {value:0, time:3});
 
@@ -91,6 +88,7 @@
             }
 
             var bulletShot;
+            var mainMenuBuffer;
             function preLoadBuffers() {
                 // Main Menu Music
                 var menuMusicRequest = new XMLHttpRequest();
@@ -98,7 +96,8 @@
                 menuMusicRequest.responseType = "arraybuffer";
                 menuMusicRequest.onload = function() {
                     audioContext.decodeAudioData(menuMusicRequest.response, function(buffer) {
-                        mainMenuSource.buffer = buffer;
+                        mainMenuBuffer = buffer;
+                        Tweener.addTween(epilepsyWarningSplash.acceptBtn, {alpha: 1, time: 2, transition: "easeInOutExpo"});
                     });
                 }
                 menuMusicRequest.send();
@@ -243,7 +242,10 @@
                     this.alive = true;
                     this.health = 100;
                     this.lives = 3;
-                    this.powerups = [];
+                    for (var x in this.powerups) {
+                        this.powerups[x].deactivate(this);
+                        this.powerups.splice(x,1);
+                    }
                 }
 
                 this.addBullet = function() {
@@ -309,8 +311,37 @@
                 e.target.enemyCheck();
                 e.target.updatePowerups();
             }
+            function ExtraHealth(health) {
+                if (health == null) {
+                    this.health = 50;
+                } else {
+                    this.health = health;
+                }
+                this.name = "Extra Health";
+                this.active = false;
+                this.activate = function(e) {
+                    this.start = now();
+                    this.active = true;
+                    this.expires = this.start;
+                    e.health += this.health;
+                }
+                this.running = function() {};
+                this.deactivate = function() {};
+            }
+            function ExtraLife() {
+                this.name = "Extra Life";
+                this.active = false;
+                this.activate = function(e) {
+                    this.start = now();
+                    this.active = true;
+                    this.expires = this.start;
+                    e.lives += 1;
+                }
+                this.running = function() {};
+                this.deactivate = function() {};
+            }
             function Invuln() {
-                this.name = "invulnerability";
+                this.name = "Invulnerability";
                 this.active = false;
                 this.soundEffectEnabled = false;
                 this.shield = new Sprite();
@@ -321,7 +352,13 @@
                     this.active = true;
                     if (this.soundEffectEnabled) {
                         highpass.Q.value = 0;
+                        highpass.frequency.value = 2000;
                         highpass.type = highpass.BANDPASS;
+                        Tweener.addTween(highpass.Q, {value: 2, time: this.duration / 4000, transition: "easeInOutExpo"});
+                        Tweener.addTween(highpass.Q, {value: 0, time: this.duration / 4000, delay: 3 * this.duration / 4000, transition: "easeInOutExpo"});
+
+                        // Tweener.addTween(highpass.frequency, {value: 2000, time: this.duration / 2000, transition: "easeInOutExpo"});
+                        // Tweener.addTween(highpass.frequency, {value: 10, time: this.duration / 2000, delay: this.duration / 2000, transition: "easeInOutExpo"});
                     }
                     e._hit = e.hit;
                     e.hit = function(dmg) {
@@ -331,21 +368,6 @@
                     e.addChild(this.shield);
                 }
                 this.running = function(e) {
-                    if (this.soundEffectEnabled) {
-                        if (this.expires - now() < (this.duration / 3)) {
-                            if (highpass.Q.value < 0) {
-                                highpass.Q.value = 0;
-                            } else {
-                                highpass.Q.value -= .03;
-                            }
-                        } else {
-                            if (highpass.Q.value > 2) {
-                                highpass.Q.value = 2;
-                            } else {
-                                highpass.Q.value += .03;
-                            }
-                        }
-                    }
                     if (this.expires - now() < (this.duration / 4)) {
                         if (~~(this.expires - now() / 100) % 2) {
                             this.shield.alpha = .25;
@@ -370,8 +392,10 @@
             }
 
 
+            var enemyCount = 0;
             function Enemy() {
                 Sprite.apply(this);
+                enemyCount += 1;
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.health = 50;
                 this.damage = 40;
@@ -381,6 +405,7 @@
                     this.health -= dmg;
                     if (this.health <= 0) {
                         this.explode();
+                        enemyCount -= 1;
                         this.remove();
                     }
                 }
@@ -394,17 +419,22 @@
             Enemy.prototype = new Sprite();
             Enemy.prototype.draw = function(e) {
                 if (e.target.x < 0) {
+                    enemyCount -= 1;
                     e.target.remove();
                 }
                 var boost = (intensity > 0) ? (intensity / 3) : 0;
                 e.target.x -= 10 + boost;
-                
+                e.target.y += enemyCount / 50;
+                if (e.target.y > height)
+                    e.target.y = 0;
+                if (e.target.y < 0)
+                    e.target.y = height;
             }
 
             function Bullet(x, y) {
                 Sprite.apply(this);
                 this.x = x;
-                this.y = y;
+                this.y = y + Math.random() * 1;
                 this.collides = false;
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.damage = (intensity > 0) ? 20 + intensity : 20;
@@ -453,6 +483,11 @@
                 } else {
                     e.target.x += (intensity > 0) ? 16 + intensity : 16;
                 }
+                e.target.y += enemyCount / 50;
+                if (e.target.y > height)
+                    e.target.y = 0;
+                if (e.target.y < 0)
+                    e.target.y = height;
                 e.target.enemyCheck();
             }
 
@@ -491,6 +526,9 @@
                 }
             }
 
+function VolumeBars(width) {
+}
+
             var removeSprite = function() {
                 this.removeEventListener(Event.ENTER_FRAME,this.draw,false);
                 for (var x in this._children) {
@@ -522,7 +560,7 @@
             var bpm = 60;
             var bpmObj = {};
             var lastBeat = 0;
-            var beatTolerance = 10;
+            var beatTolerance = 1;
 
             var width = 1280;
             var height = 720;
@@ -539,10 +577,9 @@
                 this.mouseChildren = true;
 
                 var f1 = new TextFormat("Arial", 20, 0xffffff);
-                var warningbg = new Sprite();
-                warningbg.graphics.beginFill(0x000000, .5);
-                warningbg.graphics.drawRect(0,0,width,height);
-                this.addChild(warningbg);
+                this.warningbg = new Sprite();
+                this.warningbg.graphics.beginFill(0x000000, .5);
+                this.addChild(this.warningbg);
                 var t1 = new TextField();
                 t1.setTextFormat(f1);
                 t1.wordWrap = true;
@@ -562,32 +599,52 @@
                 t2.x = 20;
                 t2.y = 120;
 
-                var acceptBtn = new Button("Accept");
-                acceptBtn.x = width / 2 - 100;
-                acceptBtn.y = height - 200;
-                this.addChild(acceptBtn);
-                acceptBtn.addEventListener(MouseEvent.CLICK, hideWarning);
-
+                this.acceptBtn = new Button("Accept");
+                this.acceptBtn.alpha = 0;
+                this.addChild(this.acceptBtn);
+                this.acceptBtn.addEventListener(MouseEvent.CLICK, hideWarning);
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
             }
             WarningSplash.prototype = new Sprite();
             WarningSplash.prototype.draw = function(e) {
+                e.target.acceptBtn.x = width / 2 - 100;
+                e.target.acceptBtn.y = height - 200;
+                e.target.warningbg.graphics.clear();
+                e.target.warningbg.graphics.drawRect(0,0,width,height);
             }
 
             function hideWarning() {
-                stage.addChild(gameSplash);
-                stage.addChild(starBg);
+                Tweener.addTween(epilepsyWarningSplash, {alpha:0, time:.5});
+                setTimeout(function() {
+                    stage.removeChild(epilepsyWarningSplash);
+                    showGameSplash();
+                }, 500);
+            }
+
+            function showGameSplash() {
+                if (mainMenuSource) {
+                    mainMenuSource.stop(0);
+                }
+                mainMenuSource = audioContext.createBufferSource();
+                mainMenuSource.buffer = mainMenuBuffer;
+                mainMenuSource.loop = true;
+                mainMenuSource.connect(audioContext.destination);
+                setTimeout("mainMenuSource.start(0);", 750);
+                for (var x in stage._children) {
+                    stage.removeChild(stage._children[x]);
+                }
                 gameSplash.x = 0;
                 gameSplash.y = 0;
                 starBg.alpha = 0;
                 gameSplash.alpha = 0;
                 gameSplash.startButton.alpha = 0;
-                Tweener.addTween(epilepsyWarningSplash, {alpha:0, time:.5, onComplete: function() {
-                    stage.removeChild(epilepsyWarningSplash);
-                }})
+                stage.addChild(gameSplash);
+                if ($.inArray(starBg, stage._children) == -1) {
+                    stage.addChild(starBg);
+                }
                 Tweener.addTween(starBg, {alpha:1, time:5});
                 Tweener.addTween(gameSplash, {alpha:1, time:5, delay:1});
                 Tweener.addTween(gameSplash.startButton, {alpha:1, time:5, delay:3});
-                setTimeout("mainMenuSource.start(0);", 500);
             }
 
             function StarBackground() {
@@ -595,7 +652,7 @@
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.numStars = 75;
                 while (this._children.length < this.numStars) {
-                    var s = new Star(Math.random() * 5 + .5);
+                    var s = new Star(Math.random() * 5 + .1);
                     s.x = Math.random() * width;
                     s.y = Math.random() * height;
                     this.addChild(s);
@@ -603,8 +660,9 @@
             }
             StarBackground.prototype = new Sprite();
             StarBackground.prototype.draw = function(e) {
+                e.target.numStars = ~~(height * width / 20000);
                 if (e.target._children.length < e.target.numStars) {
-                    e.target.addChild(new Star(Math.random() * 5 + .5));
+                    e.target.addChild(new Star(Math.random() * 5 + .1));
                 }
             }
 
@@ -621,12 +679,17 @@
             Star.prototype.draw = function(e) {
                 e.target.x -= e.target.speed;
                 var boost = (intensity > 0) ? (intensity / 3) : 0;
-                e.target.x -= boost;
+                e.target.y += enemyCount / 5;
+                e.target.x -= boost * 2;
                 e.target.graphics.clear();
-                e.target.graphics.beginFill(0xffffff, .75);
-                e.target.graphics.drawRect(0,0,e.target.initialSpeed / 5 + (boost),e.target.initialSpeed / 5 + .2);
+                e.target.graphics.beginFill(0xffffff, e.target.speed / 5);
+                e.target.graphics.drawRect(0,0,e.target.initialSpeed / 5 + 2,e.target.initialSpeed / 5 + 2);
                 if (e.target.x < 0)
                     e.target.remove();
+                if (e.target.y > height)
+                    e.target.y = 0;
+                if (e.target.y < 0)
+                    e.target.y = height;
             }
 
             function Logo() {
@@ -685,7 +748,10 @@
             function showMenu() {
                 mainMenuScene.x = width;
                 stage.addChild(mainMenuScene);
-                Tweener.addTween(gameSplash, {x:-width, time:3, transition:"easeInOutSine"});
+                Tweener.addTween(gameSplash, {x:-width, time:3, transition:"easeInOutSine"})
+                setTimeout(function() {
+                    stage.removeChild(gameSplash);
+                }, 3000);
                 Tweener.addTween(mainMenuScene, {x:0, time:3, transition:"easeInOutSine"});
             }
 
@@ -693,18 +759,20 @@
                 Sprite.apply(this);
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.uploadSongButton = new Button("Choose Song");
-                this.uploadSongButton.x = width/2 - this.uploadSongButton.GetWidth()/2;
-                this.uploadSongButton.y = height/2 - this.uploadSongButton.GetHeight()/2;
                 this.addChild(this.uploadSongButton);
 
                 this.uploadSongButton.addEventListener(MouseEvent.MOUSE_OVER, function() { canUpload = true; });
                 this.uploadSongButton.addEventListener(MouseEvent.MOUSE_OUT, function() { canUpload = false; });
+                this.addEventListener(Event.ENTER_FRAME, this.draw);
             }
             MainMenu.prototype = new Sprite();
             MainMenu.prototype.draw = function(e) {
+                e.target.uploadSongButton.x = width/2 - e.target.uploadSongButton.GetWidth()/2;
+                e.target.uploadSongButton.y = height/2 - e.target.uploadSongButton.GetHeight()/2;
             }
 
             function LoadingScreen() {
+                this.mouseEnabled = false;
                 Sprite.apply(this);
                 this.logo = new Logo();
                 this.addChild(this.logo);
@@ -717,32 +785,63 @@
                 stage.addChild(loadingScene);
                 Tweener.addTween(loadingScene, {alpha:1, time:1});
                 Tweener.addTween(mainMenuScene, {alpha:0, time:1});
+                setTimeout(function() {
+                    stage.removeChild(mainMenuScene);
+                }, 1000);
             }
 
             function showGameScreen() {
                 gamePlayScene.alpha = 0;
                 stage.addChild(gamePlayScene);
                 Tweener.addTween(loadingScene, {alpha:0, time:1});
+                setTimeout(function() {
+                    stage.removeChild(loadingScene);
+                }, 1000);
                 Tweener.addTween(gamePlayScene, {alpha:1, time:1});
             }
 
             function GamePlay() {
                 Sprite.apply(this);
+                this.mouseEnabled = false;
+                this.performanceGraph = [];
+                this.score = 0;
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.sidewalls = new Sprite();
                 this.waveforms = new Sprite();
+                this.effects = new Sprite();
+                this.effects.offset = 0;
+                this.effects.offsetTarget = 0;
+                this.effects.colorBlue = 0;
+                this.effects.targetColorBlue = 0;
+                this.effects.colorRed = 0;
+                this.effects.targetColorRed = 0;
 
                 this.player = new Player();
-                this.player.x = 100;
-                this.player.y = height / 2 - 16;
+                this.reset = function() {
+                    this.player.x = 100;
+                    this.player.y = height / 2 - 16;
+                    this.performanceGraph = [];
+                    this.score = 0;
+                    this.player.reset();
+                }
+                this.reset();
 
                 this.addChild(this.sidewalls);
+                this.addChild(this.effects);
                 this.addChild(this.waveforms);
                 this.addChild(this.player);
             }
             GamePlay.prototype = new Sprite();
             GamePlay.prototype.draw = function(e) {
                 updateSoundData();
+
+                // Effect Lines
+                e.target.effects.graphics.clear();
+                e.target.effects.graphics.lineStyle(2.5, RGBToHex(e.target.effects.colorRed, 45, e.target.effects.colorBlue), Math.max(0, intensity/20) + .25);
+                for (var y=0; y<height; y+= 50) {
+                    e.target.effects.graphics.moveTo(0, y - e.target.effects.offset % 50);
+                    e.target.effects.graphics.lineTo(width, y - e.target.effects.offset % 50);
+                }
 
                 // Sidewalls
                 e.target.sidewalls.graphics.clear();
@@ -774,14 +873,17 @@
             var logo;
             var epilepsyWarningSplash, gameSplash, starBg, mainMenuScene, loadingScene;
             var canUpload = false;
+            var canFullscreen = false;
             function Init() {
                 // Preload Audio Buffers
                 preLoadBuffers();
 
                 // Create Global Stage
                 stage = new Stage("canvas");
-                stage.stageHeight = height;
-                stage.stageWidth = width;
+                // stage.stageHeight = height;
+                // stage.stageWidth = width;
+                height = stage.stageHeight;
+                width = stage.stageWidth
 
                 // Create Scenes
                 epilepsyWarningSplash = new WarningSplash();
@@ -798,11 +900,20 @@
                 $("#canvas").click(function() {
                     if (canUpload) {
                         document.getElementById("fileUploadForm").click();
+                    } else if (canFullscreen) {
+                        if (screenfull.enabled) {
+                            screenfull.request();
+                        }
                     }
                 })
                 stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeydown);
                 stage.addEventListener(KeyboardEvent.KEY_UP  , onKeyup);
-                // stage.addEventListener(Event.ENTER_FRAME, Draw);
+                stage.addEventListener(Event.ENTER_FRAME, Draw);
+            }
+
+            function Draw() {
+                height = stage.stageHeight;
+                width = stage.stageWidth
             }
 
             var totalIntensity = 0;
@@ -813,9 +924,18 @@
             var sidewallIntensity = 0;
             var WavesArray = [127];
             var FFTArray = [0];
+            var deincrementEnemyCount = true;
 
             function updateSoundData() {
                 if (songPlaying) {
+                    var minusEnemy = ~~(now() / 1000) % 2 == 0;
+                    if (minusEnemy && deincrementEnemyCount) {
+                        enemyCount -= .5;
+                        deincrementEnemyCount = false;
+                    }
+                    if (!minusEnemy) {
+                        deincrementEnemyCount = true;
+                    }
                     FFTArray = new Float32Array(1024);
                     WavesArray = new Uint8Array(1024);
                     analyser.getFloatFrequencyData(FFTArray);
@@ -836,8 +956,14 @@
                         if (step > width) {
                             step=0;
                         }
+                        gamePlayScene.effects.offsetTarget = enemyCount * 50 + Math.max(0, intensity) * 2;
+                        gamePlayScene.effects.targetColorRed = Math.max(0, Math.min(195, intensity * 10 * enemyCount));
+                        gamePlayScene.effects.targetColorBlue = Math.max(0, 150 - Math.max(0, intensity  * 10 * enemyCount));
                     }
-                    if (sidewallIntensity > - 0) {
+                    if (sidewallIntensity > 0) {
+                        Tweener.addTween(gamePlayScene.effects, {offset:gamePlayScene.effects.offsetTarget, time:5});
+                        Tweener.addTween(gamePlayScene.effects, {colorRed:gamePlayScene.effects.targetColorRed, time:5});
+                        Tweener.addTween(gamePlayScene.effects, {colorBlue:gamePlayScene.effects.targetColorBlue, time:5});
                         beat = beatTolerance * (~~((now() - lastBeat) / beatTolerance));
                         lastBeat = now();
                         if (!bpmObj.hasOwnProperty(beat))
@@ -852,14 +978,14 @@
                             }
                         }
                     }
-                    if (sidewallIntensity > 30) {
+                    if (sidewallIntensity > 20) {
                         en = new Enemy();
                         en.x = width;
                         en.y = Math.random() * height;
                         gamePlayScene.addChild(en);
                     }
                     if (sidewallIntensity > 5) {
-                        if (Math.abs(lastEnemyAdded - now()) > 60000 / bpm * 4) {
+                        if (Math.abs(lastEnemyAdded - now()) > 60000 / bpm / 4) {
                             lastEnemyAdded = now();
                             en = new Enemy();
                             en.x = width;
@@ -870,36 +996,8 @@
                     if (sidewallIntensity > 20) sidewallIntensity = 20;
                     if (sidewallIntensity < 0) sidewallIntensity = 0;
                     intensity += 40;
+                    totalIntensity += sidewallIntensity - 1;
                 }
-
-            }
-
-            function Init2() {
-
-
-                // Create Scenes
-                gamePlayScene = new Sprite();
-                endGameScene = new Sprite();
-
-                sp = new Sprite();
-                weapon = new Sprite();
-                graph = new Sprite();
-                player = new Player();
-
-                weapon.visible = false;
-                sideWalls.visible = false;
-                graph.visible = false;
-                player.visible = false;
-
-                graph.graphics.lineStyle(3, 0xff0000, 1);
-                graph.graphics.moveTo(step, height/2);
-
-                // stage.addChild(sp);
-                // stage.addChild(weapon);
-                // stage.addChild(sideWalls);
-                // stage.addChild(graph);
-                // stage.addChild(player);
-
 
             }
 
@@ -945,6 +1043,13 @@
                 }
             }
 
+            var RGBToHex = function(r,g,b){
+                var bin = r << 16 | g << 8 | b;
+                return parseInt(bin);
+                return (function(h){
+                    return new Array(7-h.length).join("0")+h
+                })(bin.toString(16).toUpperCase())
+            }
 
             window.requestAnimFrame = (function(){
               return  window.requestAnimationFrame       ||

@@ -26,14 +26,25 @@
             height: 720px;
         }
     </style>
+    <script type="text/javascript" src="./js/jquery-2.0.0.min.js"></script>
+    <script type="text/javascript" src="./js/fullscreen.js"></script>
 </head>
 <body>
     <div id="header">
-        <h3>Music Wars - Version 0.55a</h3>
+        <h3>Music Wars - Version 0.78a</h3>
         <h4>Britt Gresham</h4>
     </div>
     <div id="container">
-        <iframe src="./game.html" frameborder="0"></iframe>
+        <iframe src="./game.html" frameborder="0" id="game"></iframe>
     </div>
+    <button id="fullscreen">Go Fullscreen</button>
+    <script type="text/javascript">
+        $("#fullscreen").click(function() {
+            var elem = document.getElementById("game");
+            if (screenfull.enabled) {
+                screenfull.request(elem);
+            }
+        });
+    </script>
 </body>
 </html>
