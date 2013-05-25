@@ -682,7 +682,7 @@ function VolumeBars(width) {
             Star.prototype.draw = function(e) {
                 e.target.x -= e.target.speed;
                 var boost = (intensity > 0) ? (intensity / 3) : 0;
-                e.target.y += enemyCount / 5;
+                e.target.y += enemyCount / 25;
                 e.target.x -= boost * 2;
                 e.target.graphics.clear();
                 e.target.graphics.beginFill(0xffffff, e.target.speed / 5);
@@ -941,7 +941,7 @@ function VolumeBars(width) {
 
             function updateSoundData() {
                 if (songPlaying) {
-                    var minusEnemy = ~~(now() / 1000) % 2 == 0;
+                    var minusEnemy = ~~(now() / 2500) % 2 == 0;
                     if (minusEnemy && deincrementEnemyCount) {
                         enemyCount -= .5;
                         deincrementEnemyCount = false;
