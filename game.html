@@ -18,7 +18,7 @@
 
         <script type="text/javascript">
 
-            version = "0.78a";
+            version = "0.79a";
             author = "Britt Gresham";
 
             var photosensitiveWarningTitle = "PHOTOSENSITIVE WARNING: READ BEFORE PLAYING!";
@@ -212,6 +212,7 @@
                 this.health = 100;
                 this.lives = 3;
                 this.score = 0;
+                this.displayScore = 0;
                 this.powerups = [];
                 this.lastBulletFired = 0;
                 this.collides = true;
@@ -406,6 +407,8 @@
                     if (this.health <= 0) {
                         this.explode();
                         enemyCount -= 1;
+                        this.parent.player.score += 100;
+                        Tweener.addTween(gamePlayScene.player, {displayScore:gamePlayScene.player.score, time:2});
                         this.remove();
                     }
                 }
@@ -808,6 +811,7 @@ function VolumeBars(width) {
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.sidewalls = new Sprite();
                 this.waveforms = new Sprite();
+                this.scoreBoard = new TextField();
                 this.effects = new Sprite();
                 this.effects.offset = 0;
                 this.effects.offsetTarget = 0;
@@ -815,6 +819,8 @@ function VolumeBars(width) {
                 this.effects.targetColorBlue = 0;
                 this.effects.colorRed = 0;
                 this.effects.targetColorRed = 0;
+
+                this.scoreBoard.setTextFormat(new TextFormat("Arial", 25, 0xffffff, false, false, "center"));
 
                 this.player = new Player();
                 this.reset = function() {
@@ -829,11 +835,18 @@ function VolumeBars(width) {
                 this.addChild(this.sidewalls);
                 this.addChild(this.effects);
                 this.addChild(this.waveforms);
+                this.addChild(this.scoreBoard);
                 this.addChild(this.player);
             }
             GamePlay.prototype = new Sprite();
             GamePlay.prototype.draw = function(e) {
                 updateSoundData();
+
+                e.target.scoreBoard.text = "" + ~~e.target.player.displayScore;
+                e.target.scoreBoard.height = e.target.scoreBoard.textHeight;
+                e.target.scoreBoard.width = e.target.scoreBoard.textWidth;
+                e.target.scoreBoard.x = width / 2;
+                e.target.scoreBoard.y = height - 36;
 
                 // Effect Lines
                 e.target.effects.graphics.clear();
