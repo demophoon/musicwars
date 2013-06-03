@@ -10,6 +10,17 @@
                 overflow: hidden;
                 background: #090B1C;
             }
+            * {
+                -webkit-touch-callout: none;
+                -webkit-user-select: none;
+                -khtml-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
+            }
+            .no-cursor {
+                cursor: none !important;
+            }
         </style>
         <script type="text/javascript" src="./js/ivank-0.72.js"></script>
         <script type="text/javascript" src="./js/t.js"></script>
@@ -26,7 +37,7 @@
 
         <script type="text/javascript">
 
-            version = "0.79a";
+            version = "0.85a";
             author = "Britt Gresham";
 
             var photosensitiveWarningTitle = "PHOTOSENSITIVE WARNING: READ BEFORE PLAYING!";
@@ -46,15 +57,20 @@
             var audioContext = new webkitAudioContext();
             var songPlaying = false;
 
-
+            var game_buffer = {};
             function getSongFromComputer(eventObj) {
                 showLoadingScreen();
                 var filename = eventObj.target.files[0];
                 var reader = new FileReader();
                 reader.onload = function() {
                     audioContext.decodeAudioData(reader.result, function(buffer) {
-                        var audioBuffer = buffer;
-                        playBuffer(audioBuffer);
+                            game_buffer = {
+                                'buffer': buffer,
+                                'starttime': 0,
+                                'pausetime': 0,
+                                'offset': 0,
+                            };
+                        playBuffer(game_buffer, 1, 0);
                         showGameScreen();
                     });
                 };
@@ -62,7 +78,23 @@
             }
 
             var mainMenuSource;
-            function playBuffer(audioBuffer) {
+            var paused = false;
+
+            function pause() {
+                if (!songPlaying) return;
+                source.stop(0);
+                game_buffer['pausetime'] = audioContext.currentTime;
+                game_buffer['offset'] += game_buffer['pausetime'] - game_buffer['starttime'];
+                paused = true;
+            }
+
+            function play() {
+                if (!songPlaying) return;
+                playBuffer(game_buffer, 0, game_buffer['offset']);
+                paused = false;
+            }
+
+            function playBuffer(audioBuffer, playDelay, offset) {
                 Tweener.addTween(mainMenuSource.gain, {value:0, time:3});
 
                 source = audioContext.createBufferSource();
@@ -70,7 +102,7 @@
                 highpass = audioContext.createBiquadFilter();
                 delay = audioContext.createDelay();
 
-                source.buffer = audioBuffer;
+                source.buffer = audioBuffer['buffer'];
                 
                 source.connect(analyser);
                 analyser.connect(highpass);
@@ -79,8 +111,9 @@
 
                 resetSoundEffects()
 
-                source.start(0);
+                source.start(playDelay, offset);
                 songPlaying = true;
+                audioBuffer['starttime'] = audioContext.currentTime;
             }
 
             function resetSoundEffects() {
@@ -194,6 +227,7 @@
             }
             Explosion.prototype = new Sprite();
             Explosion.prototype.draw = function(e) {
+                if (paused) return;
                 e.target.graphics.clear();
                 var red = 155 + e.target.radius * 1;
                 var green = 0 + e.target.radius * 2;
@@ -300,6 +334,7 @@
             }
             Player.prototype = new Sprite();
             Player.prototype.draw = function(e) {
+                if (paused) return;
                 if (e.target.alive) {
                     var movementBonus = 1;
                     if (intensity / 4 > 0) {
@@ -320,6 +355,7 @@
                 e.target.enemyCheck();
                 e.target.updatePowerups();
             }
+
             function ExtraHealth(health) {
                 if (health == null) {
                     this.health = 50;
@@ -429,6 +465,7 @@
             }
             Enemy.prototype = new Sprite();
             Enemy.prototype.draw = function(e) {
+                if (paused) return;
                 if (e.target.x < 0) {
                     enemyCount -= 1;
                     e.target.remove();
@@ -478,6 +515,7 @@
             }
             Bullet.prototype = new Sprite();
             Bullet.prototype.draw = function(e) {
+                if (paused) return;
                 e.target.graphics.clear();
 
                 e.target.bsize = (intensity * 2 > 0) ? intensity * 2 : 5;
@@ -515,6 +553,7 @@
             }
             Waveform.prototype = new Sprite();
             Waveform.prototype.draw = function(e) {
+                if (paused) return;
                 if (e.target.width == null) {
                     wavewidth = e.target.parent.GetWidth();
                 } else {
@@ -566,7 +605,7 @@ function VolumeBars(width) {
 
             var player;
             var lastEnemyAdded = 0;
-            var l, r, u, d, fire;
+            var l, r, u, d, fire, pauseKey;
 
             var bpm = 60;
             var bpmObj = {};
@@ -618,6 +657,7 @@ function VolumeBars(width) {
             }
             WarningSplash.prototype = new Sprite();
             WarningSplash.prototype.draw = function(e) {
+                if (paused) return;
                 e.target.acceptBtn.x = width / 2 - 100;
                 e.target.acceptBtn.y = height - 200;
                 e.target.warningbg.graphics.clear();
@@ -663,7 +703,7 @@ function VolumeBars(width) {
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
                 this.numStars = 75;
                 while (this._children.length < this.numStars) {
-                    var s = new Star(Math.random() * 5 + .1);
+                    var s = new Star(Math.random() * 10 + .1);
                     s.x = Math.random() * width;
                     s.y = Math.random() * height;
                     this.addChild(s);
@@ -671,7 +711,8 @@ function VolumeBars(width) {
             }
             StarBackground.prototype = new Sprite();
             StarBackground.prototype.draw = function(e) {
-                e.target.numStars = ~~(height * width / 20000);
+                if (paused) return;
+                e.target.numStars = Math.max(~~(height * width / 20000), ~~(intensity * 10));
                 if (e.target._children.length < e.target.numStars) {
                     e.target.addChild(new Star(Math.random() * 5 + .1));
                 }
@@ -688,13 +729,14 @@ function VolumeBars(width) {
             }
             Star.prototype = new Sprite();
             Star.prototype.draw = function(e) {
+                if (paused) return;
                 e.target.x -= e.target.speed;
                 var boost = (intensity > 0) ? (intensity / 3) : 0;
                 e.target.y += enemyCount / 25;
-                e.target.x -= boost * 2;
+                e.target.x -= boost * 3;
                 e.target.graphics.clear();
                 e.target.graphics.beginFill(0xffffff, e.target.speed / 5);
-                e.target.graphics.drawRect(0,0,e.target.initialSpeed / 5 + 2,e.target.initialSpeed / 5 + 2);
+                e.target.graphics.drawRect(0,0,e.target.initialSpeed / 5 + 2 + boost * 3,e.target.initialSpeed / 5 + 2);
                 if (e.target.x < 0)
                     e.target.remove();
                 if (e.target.y > height)
@@ -720,6 +762,7 @@ function VolumeBars(width) {
             }
             Logo.prototype = new Sprite();
             Logo.prototype.draw = function(e) {
+                if (paused) return;
                 if (e.target.nextBlink < now()) {
                     e.target.logo.alpha = Math.random() * .25;
                     e.target.logo2.alpha = Math.random() * .75;
@@ -750,6 +793,7 @@ function VolumeBars(width) {
             }
             GameSplash.prototype = new Sprite();
             GameSplash.prototype.draw = function(e) {
+                if (paused) return;
                 e.target.logo.x = (width / 2) - (e.target.logo.GetWidth() / 2);
                 e.target.logo.y = (height / 4) - (e.target.logo.GetHeight() / 4);
                 e.target.startButton.x = (width / 2) - (e.target.startButton.GetWidth() / 2);
@@ -778,6 +822,7 @@ function VolumeBars(width) {
             }
             MainMenu.prototype = new Sprite();
             MainMenu.prototype.draw = function(e) {
+                if (paused) return;
                 e.target.uploadSongButton.x = width/2 - e.target.uploadSongButton.GetWidth()/2;
                 e.target.uploadSongButton.y = height/2 - e.target.uploadSongButton.GetHeight()/2;
             }
@@ -809,14 +854,21 @@ function VolumeBars(width) {
                     stage.removeChild(loadingScene);
                 }, 1000);
                 Tweener.addTween(gamePlayScene, {alpha:1, time:1});
+                $("canvas").addClass("no-cursor");
             }
 
             function GamePlay() {
                 Sprite.apply(this);
-                this.mouseEnabled = false;
+                this.mouseEnabled = true;
                 this.performanceGraph = [];
                 this.score = 0;
                 this.addEventListener(Event.ENTER_FRAME, this.draw);
+
+                stage.addEventListener(MouseEvent.MOUSE_DOWN, function() { fire = true; });
+                stage.addEventListener(MouseEvent.MOUSE_UP, function() { fire = false; });
+                stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeydown);
+                stage.addEventListener(KeyboardEvent.KEY_UP  , onKeyup);
+
                 this.sidewalls = new Sprite();
                 this.waveforms = new Sprite();
                 this.scoreBoard = new TextField();
@@ -840,6 +892,11 @@ function VolumeBars(width) {
                 }
                 this.reset();
 
+                this.mousemove = function(e) {
+                    this.player.x = stage.mouseX;
+                    this.player.y = stage.mouseY;
+                }
+
                 this.addChild(this.sidewalls);
                 this.addChild(this.effects);
                 this.addChild(this.waveforms);
@@ -848,6 +905,9 @@ function VolumeBars(width) {
             }
             GamePlay.prototype = new Sprite();
             GamePlay.prototype.draw = function(e) {
+                if (paused) return;
+                if (pauseKey)
+                    pause();
                 updateSoundData();
 
                 e.target.scoreBoard.text = "" + ~~e.target.player.displayScore;
@@ -858,7 +918,7 @@ function VolumeBars(width) {
 
                 // Effect Lines
                 e.target.effects.graphics.clear();
-                e.target.effects.graphics.lineStyle(2.5, RGBToHex(e.target.effects.colorRed, 45, e.target.effects.colorBlue), Math.max(0, intensity/20) + .25);
+                e.target.effects.graphics.lineStyle(2.5, RGBToHex(e.target.effects.colorRed, 45, e.target.effects.colorBlue), Math.min(.75, Math.max(0, intensity/20) + .001));
                 for (var y=0; y<height; y+= 50) {
                     e.target.effects.graphics.moveTo(0, y - e.target.effects.offset % 50);
                     e.target.effects.graphics.lineTo(width, y - e.target.effects.offset % 50);
@@ -927,9 +987,8 @@ function VolumeBars(width) {
                         }
                     }
                 })
-                stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeydown);
-                stage.addEventListener(KeyboardEvent.KEY_UP  , onKeyup);
                 stage.addEventListener(Event.ENTER_FRAME, Draw);
+                stage.addEventListener(MouseEvent.MOUSE_MOVE, function(e){ gamePlayScene.mousemove(e) } );
             }
 
             function Draw() {
@@ -978,8 +1037,8 @@ function VolumeBars(width) {
                             step=0;
                         }
                         gamePlayScene.effects.offsetTarget = enemyCount * 50 + Math.max(0, intensity) * 2;
-                        gamePlayScene.effects.targetColorRed = Math.max(0, Math.min(195, intensity * 10 * enemyCount));
-                        gamePlayScene.effects.targetColorBlue = Math.max(0, 150 - Math.max(0, intensity  * 10 * enemyCount));
+                        gamePlayScene.effects.targetColorRed = Math.max(0, Math.min(220, sidewallIntensity * 30 * enemyCount));
+                        gamePlayScene.effects.targetColorBlue = Math.max(0, 150 - Math.max(0, sidewallIntensity * 10 * enemyCount));
                     }
                     if (sidewallIntensity > 0) {
                         Tweener.addTween(gamePlayScene.effects, {offset:gamePlayScene.effects.offsetTarget, time:5});
@@ -999,15 +1058,20 @@ function VolumeBars(width) {
                             }
                         }
                     }
-                    if (sidewallIntensity > 20) {
-                        en = new Enemy();
-                        en.x = width;
-                        en.y = Math.random() * height;
-                        gamePlayScene.addChild(en);
-                    }
-                    if (sidewallIntensity > 5) {
-                        if (Math.abs(lastEnemyAdded - now()) > 60000 / bpm / 4) {
-                            lastEnemyAdded = now();
+                    if (Math.abs(lastEnemyAdded - now()) > 60000 / bpm) {
+                        lastEnemyAdded = now();
+                        console.log("new Enemy");
+                        if (sidewallIntensity > 20 ) {
+                            en = new Enemy();
+                            en.x = width;
+                            en.y = Math.random() * height;
+                            gamePlayScene.addChild(en);
+                        } else if (intensity > -36) {
+                            en = new Enemy();
+                            en.x = width;
+                            en.y = Math.random() * height;
+                            gamePlayScene.addChild(en);
+                        } else if (sidewallIntensity > 15) {
                             en = new Enemy();
                             en.x = width;
                             en.y = Math.random() * height;
@@ -1035,6 +1099,7 @@ function VolumeBars(width) {
                if(e.keyCode == 39 || e.keyCode == 68) r = true;
                if(e.keyCode == 40 || e.keyCode == 83) d = true;
                if(e.keyCode == 32) fire = true;
+               if(e.keyCode == 27) pauseKey = true;
             }
 
             function onKeyup(e)
@@ -1044,6 +1109,7 @@ function VolumeBars(width) {
                if(e.keyCode == 39 || e.keyCode == 68) r = false;
                if(e.keyCode == 40 || e.keyCode == 83) d = false;
                if(e.keyCode == 32) fire = false;
+               if(e.keyCode == 27) pauseKey = false;
             }
 
             function drawWaveform(startX, startY, endX, endY, Waves, displayObj, ratio) {
