@@ -33,13 +33,13 @@
             author = "Britt Gresham";
 
             var photosensitiveWarningTitle = "PHOTOSENSITIVE WARNING: READ BEFORE PLAYING!";
-            var photosensitiveWarning = "A very small percentage of individuals may experience epileptic seizures" + 
+            var photosensitiveWarning = "A very small percentage of individuals may experience epileptic seizures" +
             " when exposed to certain light patterns or flashing lights.\nExposure to certain patterns or backgrounds" +
             " on a computer screen, or while playing video games, may induce an epileptic seizure in these individuals.\n" +
             "Certain conditions may induce previously undetected epileptic symptoms even in persons who have no history " +
-            "of prior seizures or epilepsy.\n\nIf you, or anyone in your family, have an epileptic condition, consult your physician" + 
-            " prior to playing. If you experience any of the following symptoms while playing a video or computer game -- " + 
-            "dizziness, altered vision, eye or muscle twitches, loss of awareness, disorientation, any involuntary movement, or " + 
+            "of prior seizures or epilepsy.\n\nIf you, or anyone in your family, have an epileptic condition, consult your physician" +
+            " prior to playing. If you experience any of the following symptoms while playing a video or computer game -- " +
+            "dizziness, altered vision, eye or muscle twitches, loss of awareness, disorientation, any involuntary movement, or " +
             "convulsions -- IMMEDIATELY discontinue use and consult your physician before resuming play."
 
             $(document).ready(function() {
@@ -95,7 +95,7 @@
                 delay = audioContext.createDelay();
 
                 source.buffer = audioBuffer['buffer'];
-                
+
                 source.connect(analyser);
                 analyser.connect(highpass);
                 highpass.connect(delay);
@@ -117,7 +117,7 @@
                 analyser.smoothingTimeConstant = 0;
                 highpass.type = highpass.ALLPASS;
                 highpass.Q.value = 0;
-                
+
             }
 
             var bulletShot;
@@ -166,7 +166,7 @@
                 this.buttonMode = true;
                 this.mouseChildren = false;
                 this.name = name;
-                
+
                 this.t = new TextField();
                 this.t.setTextFormat(Button.tFormat);
                 this.t.text = name;
@@ -175,7 +175,7 @@
                 this.t.width = (this.t.textWidth > 136) ? this.t.textWidth : 136;
                 this.t.height = this.t.textHeight;
                 this.addChild(this.t);
-                
+
                 this.btnBorder = new BitmapData("./img/btn.png", 1);
                 this.btnTop = new Bitmap(this.btnBorder);
                 this.btnBottom = new Bitmap(this.btnBorder);
@@ -185,12 +185,12 @@
 
                 this.graphics.beginFill(0x000000, 0.01);
                 this.graphics.drawRect(0, 0, this.t.GetWidth() + 10, this.t.GetHeight() + 10);
-                
+
                 this.bg = new Sprite();		// bg is a layer with dark blue rectangle
                 this.bg.graphics.beginFill(0x0066dd, 0.01);
                 this.bg.graphics.drawRect(0, 0, this.t.GetWidth() + 10, this.t.GetHeight() + 10);
                 this.addChild(this.bg);
-                
+
                 this.addEventListener(MouseEvent.MOUSE_OVER, this.onMOv);
                 this.addEventListener(MouseEvent.MOUSE_OUT , this.onMOu);
             }
@@ -626,7 +626,7 @@ function VolumeBars(width) {
                 t1.setTextFormat(f1);
                 t1.wordWrap = true;
                 t1.text = photosensitiveWarningTitle;
-                t1.width = width - 40; 
+                t1.width = width - 40;
                 t1.height = height - 40;
                 this.addChild(t1);
                 t1.x = 20;
@@ -635,7 +635,7 @@ function VolumeBars(width) {
                 t2.setTextFormat(f1);
                 t2.wordWrap = true;
                 t2.text = photosensitiveWarning;
-                t2.width = width - 40; 
+                t2.width = width - 40;
                 t2.height = height - 40;
                 this.addChild(t2);
                 t2.x = 20;
@@ -827,7 +827,7 @@ function VolumeBars(width) {
 
             }
             LoadingScreen.prototype = new Sprite();
-            
+
             function showLoadingScreen() {
                 loadingScene.alpha = 0;
                 stage.addChild(loadingScene);
@@ -1084,7 +1084,7 @@ function VolumeBars(width) {
            */
 
             function onKeydown(e)
-            { 
+            {
                // console.log(e.keyCode);
                if(e.keyCode == 37 || e.keyCode == 65) l = true;
                if(e.keyCode == 38 || e.keyCode == 87) u = true;
