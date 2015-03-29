@@ -46,7 +46,7 @@
                 var filePrompt = document.getElementById('fileUploadForm');
                 filePrompt.addEventListener('change', getSongFromComputer, false);
             });
-            var audioContext = new webkitAudioContext();
+            var audioContext = new AudioContext() || new webkitAudioContext();
             var songPlaying = false;
 
             var game_buffer = {};
@@ -70,6 +70,7 @@
             }
 
             var mainMenuSource;
+            var mainMenuGain;
             var paused = false;
 
             function pause() {
@@ -87,7 +88,7 @@
             }
 
             function playBuffer(audioBuffer, playDelay, offset) {
-                Tweener.addTween(mainMenuSource.gain, {value:0, time:3});
+                Tweener.addTween(mainMenuGain.gain, {value:0, time:3});
 
                 source = audioContext.createBufferSource();
                 analyser = audioContext.createAnalyser();
@@ -95,6 +96,9 @@
                 delay = audioContext.createDelay();
 
                 source.buffer = audioBuffer['buffer'];
+
+
+                highpass.Q.value = 0;
 
                 source.connect(analyser);
                 analyser.connect(highpass);
@@ -115,7 +119,7 @@
                 source.playbackRate.value = 1;
                 delay.delayTime.value = .06;
                 analyser.smoothingTimeConstant = 0;
-                highpass.type = highpass.ALLPASS;
+                highpass.type = "allpass";
                 highpass.Q.value = 0;
 
             }
@@ -149,10 +153,12 @@
 
             function playBulletShot() {
                 var source = audioContext.createBufferSource();
+                var gain = audioContext.createGain();
                 source.playbackRate.value = .7 + (Math.random() * .2);
                 source.buffer = bulletShot;
-                source.gain.value = .1 + (Math.random() * .05);
-                source.connect(audioContext.destination);
+                gain.value = .1 + (Math.random() * .05);
+                source.connect(gain);
+                gain.connect(audioContext.destination);
                 source.start(0);
             }
 
@@ -261,7 +267,7 @@
                         if (this.lives <= 0) {
                             this.explode();
                             this.alive = false;
-                            highpass.type = highpass.BANDPASS;
+                            highpass.type = "bandpass";
                             highpass.Q.value = 1.5;
                         } else {
                             var inv = new Invuln();
@@ -390,7 +396,7 @@
                     if (this.soundEffectEnabled) {
                         highpass.Q.value = 0;
                         highpass.frequency.value = 2000;
-                        highpass.type = highpass.BANDPASS;
+                        highpass.type = "bandpass";
                         Tweener.addTween(highpass.Q, {value: 2, time: this.duration / 4000, transition: "easeInOutExpo"});
                         Tweener.addTween(highpass.Q, {value: 0, time: this.duration / 4000, delay: 3 * this.duration / 4000, transition: "easeInOutExpo"});
 
@@ -417,7 +423,7 @@
                     this.active = false;
                     if (this.soundEffectEnabled) {
                         highpass.Q.value = 0;
-                        highpass.type = highpass.ALLPASS;
+                        highpass.type = "allpass";
                     }
                     e.hit = e._hit;
                     e._hit = function(dmg) {
@@ -669,9 +675,11 @@ function VolumeBars(width) {
                     mainMenuSource.stop(0);
                 }
                 mainMenuSource = audioContext.createBufferSource();
+                mainMenuGain = audioContext.createGain();
                 mainMenuSource.buffer = mainMenuBuffer;
                 mainMenuSource.loop = true;
-                mainMenuSource.connect(audioContext.destination);
+                mainMenuSource.connect(mainMenuGain);
+                mainMenuGain.connect(audioContext.destination);
                 setTimeout("mainMenuSource.start(0);", 750);
                 for (var x in stage._children) {
                     stage.removeChild(stage._children[x]);
