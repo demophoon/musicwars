@@ -26,14 +26,6 @@
         <script type="text/javascript" src="./js/t.js"></script>
         <script type="text/javascript" src="./js/jquery-2.0.0.min.js"></script>
         <script type="text/javascript" src="./js/fullscreen.js"></script>
-        <script>
-          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-          })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-          ga('create', 'UA-34543516-2', 'brittg.com');
-          ga('send', 'pageview');
-        </script>
 
         <script type="text/javascript">
 
@@ -41,20 +33,20 @@
             author = "Britt Gresham";
 
             var photosensitiveWarningTitle = "PHOTOSENSITIVE WARNING: READ BEFORE PLAYING!";
-            var photosensitiveWarning = "A very small percentage of individuals may experience epileptic seizures" + 
+            var photosensitiveWarning = "A very small percentage of individuals may experience epileptic seizures" +
             " when exposed to certain light patterns or flashing lights.\nExposure to certain patterns or backgrounds" +
             " on a computer screen, or while playing video games, may induce an epileptic seizure in these individuals.\n" +
             "Certain conditions may induce previously undetected epileptic symptoms even in persons who have no history " +
-            "of prior seizures or epilepsy.\n\nIf you, or anyone in your family, have an epileptic condition, consult your physician" + 
-            " prior to playing. If you experience any of the following symptoms while playing a video or computer game -- " + 
-            "dizziness, altered vision, eye or muscle twitches, loss of awareness, disorientation, any involuntary movement, or " + 
+            "of prior seizures or epilepsy.\n\nIf you, or anyone in your family, have an epileptic condition, consult your physician" +
+            " prior to playing. If you experience any of the following symptoms while playing a video or computer game -- " +
+            "dizziness, altered vision, eye or muscle twitches, loss of awareness, disorientation, any involuntary movement, or " +
             "convulsions -- IMMEDIATELY discontinue use and consult your physician before resuming play."
 
             $(document).ready(function() {
                 var filePrompt = document.getElementById('fileUploadForm');
                 filePrompt.addEventListener('change', getSongFromComputer, false);
             });
-            var audioContext = new webkitAudioContext();
+            var audioContext = new AudioContext() || new webkitAudioContext();
             var songPlaying = false;
 
             var game_buffer = {};
@@ -78,6 +70,7 @@
             }
 
             var mainMenuSource;
+            var mainMenuGain;
             var paused = false;
 
             function pause() {
@@ -95,7 +88,7 @@
             }
 
             function playBuffer(audioBuffer, playDelay, offset) {
-                Tweener.addTween(mainMenuSource.gain, {value:0, time:3});
+                Tweener.addTween(mainMenuGain.gain, {value:0, time:3});
 
                 source = audioContext.createBufferSource();
                 analyser = audioContext.createAnalyser();
@@ -103,7 +96,10 @@
                 delay = audioContext.createDelay();
 
                 source.buffer = audioBuffer['buffer'];
-                
+
+
+                highpass.Q.value = 0;
+
                 source.connect(analyser);
                 analyser.connect(highpass);
                 highpass.connect(delay);
@@ -123,9 +119,9 @@
                 source.playbackRate.value = 1;
                 delay.delayTime.value = .06;
                 analyser.smoothingTimeConstant = 0;
-                highpass.type = highpass.ALLPASS;
+                highpass.type = "allpass";
                 highpass.Q.value = 0;
-                
+
             }
 
             var bulletShot;
@@ -157,10 +153,12 @@
 
             function playBulletShot() {
                 var source = audioContext.createBufferSource();
+                var gain = audioContext.createGain();
                 source.playbackRate.value = .7 + (Math.random() * .2);
                 source.buffer = bulletShot;
-                source.gain.value = .1 + (Math.random() * .05);
-                source.connect(audioContext.destination);
+                gain.value = .1 + (Math.random() * .05);
+                source.connect(gain);
+                gain.connect(audioContext.destination);
                 source.start(0);
             }
 
@@ -174,7 +172,7 @@
                 this.buttonMode = true;
                 this.mouseChildren = false;
                 this.name = name;
-                
+
                 this.t = new TextField();
                 this.t.setTextFormat(Button.tFormat);
                 this.t.text = name;
@@ -183,7 +181,7 @@
                 this.t.width = (this.t.textWidth > 136) ? this.t.textWidth : 136;
                 this.t.height = this.t.textHeight;
                 this.addChild(this.t);
-                
+
                 this.btnBorder = new BitmapData("./img/btn.png", 1);
                 this.btnTop = new Bitmap(this.btnBorder);
                 this.btnBottom = new Bitmap(this.btnBorder);
@@ -193,12 +191,12 @@
 
                 this.graphics.beginFill(0x000000, 0.01);
                 this.graphics.drawRect(0, 0, this.t.GetWidth() + 10, this.t.GetHeight() + 10);
-                
+
                 this.bg = new Sprite();		// bg is a layer with dark blue rectangle
                 this.bg.graphics.beginFill(0x0066dd, 0.01);
                 this.bg.graphics.drawRect(0, 0, this.t.GetWidth() + 10, this.t.GetHeight() + 10);
                 this.addChild(this.bg);
-                
+
                 this.addEventListener(MouseEvent.MOUSE_OVER, this.onMOv);
                 this.addEventListener(MouseEvent.MOUSE_OUT , this.onMOu);
             }
@@ -269,7 +267,7 @@
                         if (this.lives <= 0) {
                             this.explode();
                             this.alive = false;
-                            highpass.type = highpass.BANDPASS;
+                            highpass.type = "bandpass";
                             highpass.Q.value = 1.5;
                         } else {
                             var inv = new Invuln();
@@ -398,7 +396,7 @@
                     if (this.soundEffectEnabled) {
                         highpass.Q.value = 0;
                         highpass.frequency.value = 2000;
-                        highpass.type = highpass.BANDPASS;
+                        highpass.type = "bandpass";
                         Tweener.addTween(highpass.Q, {value: 2, time: this.duration / 4000, transition: "easeInOutExpo"});
                         Tweener.addTween(highpass.Q, {value: 0, time: this.duration / 4000, delay: 3 * this.duration / 4000, transition: "easeInOutExpo"});
 
@@ -425,7 +423,7 @@
                     this.active = false;
                     if (this.soundEffectEnabled) {
                         highpass.Q.value = 0;
-                        highpass.type = highpass.ALLPASS;
+                        highpass.type = "allpass";
                     }
                     e.hit = e._hit;
                     e._hit = function(dmg) {
@@ -634,7 +632,7 @@ function VolumeBars(width) {
                 t1.setTextFormat(f1);
                 t1.wordWrap = true;
                 t1.text = photosensitiveWarningTitle;
-                t1.width = width - 40; 
+                t1.width = width - 40;
                 t1.height = height - 40;
                 this.addChild(t1);
                 t1.x = 20;
@@ -643,7 +641,7 @@ function VolumeBars(width) {
                 t2.setTextFormat(f1);
                 t2.wordWrap = true;
                 t2.text = photosensitiveWarning;
-                t2.width = width - 40; 
+                t2.width = width - 40;
                 t2.height = height - 40;
                 this.addChild(t2);
                 t2.x = 20;
@@ -677,9 +675,11 @@ function VolumeBars(width) {
                     mainMenuSource.stop(0);
                 }
                 mainMenuSource = audioContext.createBufferSource();
+                mainMenuGain = audioContext.createGain();
                 mainMenuSource.buffer = mainMenuBuffer;
                 mainMenuSource.loop = true;
-                mainMenuSource.connect(audioContext.destination);
+                mainMenuSource.connect(mainMenuGain);
+                mainMenuGain.connect(audioContext.destination);
                 setTimeout("mainMenuSource.start(0);", 750);
                 for (var x in stage._children) {
                     stage.removeChild(stage._children[x]);
@@ -835,7 +835,7 @@ function VolumeBars(width) {
 
             }
             LoadingScreen.prototype = new Sprite();
-            
+
             function showLoadingScreen() {
                 loadingScene.alpha = 0;
                 stage.addChild(loadingScene);
@@ -1092,7 +1092,7 @@ function VolumeBars(width) {
            */
 
             function onKeydown(e)
-            { 
+            {
                // console.log(e.keyCode);
                if(e.keyCode == 37 || e.keyCode == 65) l = true;
                if(e.keyCode == 38 || e.keyCode == 87) u = true;
